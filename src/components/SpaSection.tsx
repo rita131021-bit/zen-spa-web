@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "lucide-react";
 import { scrollToReservas } from "@/lib/scrollToReservas";
 import EditablePrice from "@/components/EditablePrice";
+import { apiUrl } from "@/lib/api";
 
 function CheckCircle() {
   return (
@@ -143,7 +144,7 @@ export default function SpaSection() {
   const [prices, setPrices] = useState<Record<string, { price: string; priceNote: string }>>({});
 
   useEffect(() => {
-    fetch("/api/prices")
+    fetch(apiUrl("/api/prices"))
       .then(r => r.ok ? r.json() : [])
       .then((data: PriceEntry[]) => {
         const map: Record<string, { price: string; priceNote: string }> = {};

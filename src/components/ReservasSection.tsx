@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight, Clock, Moon, Sun, AlertCircle } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 /* ─── Icons ─── */
 function PawIcon({ size = 16, color = "#7C3AED" }: { size?: number; color?: string }) {
@@ -389,7 +390,7 @@ export default function ReservasSection() {
   const [prices, setPrices] = useState<Record<string, PriceEntry>>({});
 
   useEffect(() => {
-    fetch("/api/prices")
+    fetch(apiUrl("/api/prices"))
       .then(response => response.ok ? response.json() : Promise.reject())
       .then((entries: PriceEntry[]) => {
         setPrices(Object.fromEntries(entries.filter(entry => entry.visible).map(entry => [entry.id, entry])));
@@ -440,7 +441,7 @@ export default function ReservasSection() {
   const fetchAvailability = useCallback(async (year: number, month: number) => {
     setAvailLoading(true);
     try {
-      const res = await fetch(`/api/availability?month=${monthKey(year, month)}`);
+      const res = await fetch(apiUrl(`/api/availability?month=${monthKey(year, month)}`));
       if (res.ok) setAvailability(await res.json());
     } catch {
       // silently fail — don't block booking
@@ -540,7 +541,7 @@ export default function ReservasSection() {
         customFood:   specialFood ? customFood   : "",
         bringsBlanket, bringsBed, extraNotes,
       };
-      const res = await fetch("/api/bookings", {
+      const res = await fetch(apiUrl("/api/bookings"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

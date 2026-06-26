@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { apiUrl } from "@/lib/api";
 
 const ADMIN_PW_KEY = "zen_admin_authed";
 
@@ -49,7 +50,7 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/dogs", {
+      const res = await fetch(apiUrl("/api/dogs"), {
         headers: { "x-admin-password": pw },
       });
       if (res.ok) {
@@ -401,7 +402,7 @@ function AddDogModal({ pw, onAdded, onClose }: { pw: string; onAdded: (d: Dog) =
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/dogs", {
+    const res = await fetch(apiUrl("/api/dogs"), {
       method: "POST",
       headers: apiHeaders(pw),
       body: JSON.stringify({ name: name.trim(), emoji: emoji.trim(), service: service.trim() }),
@@ -632,7 +633,7 @@ export default function Admin() {
 
   const fetchDogs = (password: string) => {
     setLoading(true);
-    return fetch("/api/dogs", { headers: { "x-admin-password": password } })
+    return fetch(apiUrl("/api/dogs"), { headers: { "x-admin-password": password } })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setDogs)
       .finally(() => setLoading(false));
@@ -640,7 +641,7 @@ export default function Admin() {
 
   const fetchReviews = (password: string) => {
     setLoadingReviews(true);
-    return fetch("/api/reviews/all", { headers: { "x-admin-password": password } })
+    return fetch(apiUrl("/api/reviews/all"), { headers: { "x-admin-password": password } })
       .then(r => r.ok ? r.json() : [])
       .then(setReviews)
       .finally(() => setLoadingReviews(false));
@@ -648,7 +649,7 @@ export default function Admin() {
 
   const fetchGallery = () => {
     setLoadingGallery(true);
-    return fetch("/api/gallery")
+    return fetch(apiUrl("/api/gallery"))
       .then(r => r.ok ? r.json() : [])
       .then(setGallery)
       .finally(() => setLoadingGallery(false));
@@ -658,7 +659,7 @@ export default function Admin() {
     setUploadingGallery(true);
     const formData = new FormData();
     formData.append("photo", file);
-    const res = await fetch("/api/gallery/upload", {
+    const res = await fetch(apiUrl("/api/gallery/upload"), {
       method: "POST",
       headers: { "x-admin-password": pw },
       body: formData,

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Gift, Heart, Sparkles, Calendar } from "lucide-react";
 import { scrollToReservas } from "@/lib/scrollToReservas";
 import EditablePrice from "@/components/EditablePrice";
+import { apiUrl } from "@/lib/api";
 
 const CARDS = [
   { id: "gc-relax",   emoji: "🌸", title: "Gift Card Relax",   subtitle: "Sesión Spa Relax completa",  color: "#F5F0FF", accent: "#7C3AED", description: "El regalo ideal para quienes necesitan un momento de calma." },
@@ -87,7 +88,7 @@ export default function GiftCardsSection() {
   const [prices, setPrices] = useState<Record<string, { price: string; priceNote: string }>>({});
 
   useEffect(() => {
-    fetch("/api/prices")
+    fetch(apiUrl("/api/prices"))
       .then(r => r.ok ? r.json() : [])
       .then((data: PriceEntry[]) => {
         const map: Record<string, { price: string; priceNote: string }> = {};

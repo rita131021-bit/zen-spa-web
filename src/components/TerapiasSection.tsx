@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "lucide-react";
 import { scrollToReservas } from "@/lib/scrollToReservas";
 import EditablePrice from "@/components/EditablePrice";
+import { apiUrl } from "@/lib/api";
 
 function PawIcon({ size = 20, color = "#7C3AED" }: { size?: number; color?: string }) {
   return (
@@ -33,7 +34,7 @@ export default function TerapiasSection() {
   const [prices, setPrices] = useState<Record<string, { price: string; priceNote: string }>>({});
 
   useEffect(() => {
-    fetch("/api/prices")
+    fetch(apiUrl("/api/prices"))
       .then(r => r.ok ? r.json() : [])
       .then((data: PriceEntry[]) => {
         const map: Record<string, { price: string; priceNote: string }> = {};

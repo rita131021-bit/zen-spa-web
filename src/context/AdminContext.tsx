@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { apiUrl } from "@/lib/api";
 
 interface AdminCtx {
   isAdmin: boolean;
@@ -20,8 +21,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   async function activate(pw: string): Promise<boolean> {
     try {
-      const res = await fetch("/api/prices", { headers: { "x-admin-password": pw } });
-      const test = await fetch("/api/reviews/all", { headers: { "x-admin-password": pw } });
+      const res = await fetch(apiUrl("/api/prices"), { headers: { "x-admin-password": pw } });
+      const test = await fetch(apiUrl("/api/reviews/all"), { headers: { "x-admin-password": pw } });
       if (res.ok && test.ok) {
         setIsAdmin(true);
         setPassword(pw);

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Calendar, Sparkles, Star, ImageOff } from "lucide-react";
 import { scrollToReservas } from "@/lib/scrollToReservas";
 import { useAdmin } from "@/context/AdminContext";
+import { apiUrl } from "@/lib/api";
 
 interface Combo {
   id: string;
@@ -283,7 +284,7 @@ export default function CombosSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/combos")
+    fetch(apiUrl("/api/combos"))
       .then(r => r.ok ? r.json() : [])
       .then(data => { if (Array.isArray(data) && data.length > 0) setCombos(data); setLoading(false); })
       .catch(() => setLoading(false));

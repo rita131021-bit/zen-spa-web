@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Star, Heart, ChevronLeft, ChevronRight, Send, Upload, Camera } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 function PawIcon({ size = 16, color = "#7C3AED" }: { size?: number; color?: string }) {
   return (
@@ -179,7 +180,7 @@ function AntesDespuesCarousel() {
   const [dogs, setDogs] = useState<DogEntry[]>(FALLBACK_DOGS);
 
   useEffect(() => {
-    fetch("/api/dogs")
+    fetch(apiUrl("/api/dogs"))
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setDogs)
       .catch(() => { /* keep fallback */ });
@@ -254,7 +255,7 @@ export default function ResultadosSection() {
   );
 
   useEffect(() => {
-    fetch("/api/gallery")
+    fetch(apiUrl("/api/gallery"))
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setGallery)
       .catch(() => { /* keep fallback */ });
@@ -271,7 +272,7 @@ export default function ResultadosSection() {
   const photoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/reviews")
+    fetch(apiUrl("/api/reviews"))
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(setReviews)
       .catch(() => { /* keep fallback */ });
@@ -300,7 +301,7 @@ export default function ResultadosSection() {
       fd.append("text", rText);
       fd.append("stars", String(rStars));
       if (rPhoto) fd.append("photo", rPhoto);
-      await fetch("/api/reviews", { method: "POST", body: fd });
+      await fetch(apiUrl("/api/reviews"), { method: "POST", body: fd });
     } catch { /* still show success */ }
     setRSent(true);
     setRSending(false);
