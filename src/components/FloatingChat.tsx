@@ -1,11 +1,30 @@
-import { useState, useEffect } from "react";
-import { X, MessageCircle, Calendar, Gift, HelpCircle } from "lucide-react";
-import { scrollToReservas } from "@/lib/scrollToReservas";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Send, X } from "lucide-react";
+import { io, type Socket } from "socket.io-client";
+import { apiUrl } from "@/lib/api";
 
-/* ─── CONFIG ─── Change this to the real WhatsApp number ─── */
 const WA_PHONE   = "5491100000000"; // Format: 54 9 (area code) (number) — no +, no spaces
 const WA_MESSAGE = "Hola 🌸 Quiero consultar sobre los servicios de Zen Spa para Mascotas.";
 const WA_URL     = `https://wa.me/${WA_PHONE}?text=${encodeURIComponent(WA_MESSAGE)}`;
+const VISITOR_STORAGE_KEY = "zen-chat-visitor-id";
+const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
+const SOCKET_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
+type ChatMessage = {
+  id: number | string;
+  cliente_id: number | string;
+  autor_tipo: "cliente" | "admin";
+  autor_nombre: string;
+  mensaje: string;
+  creado_en: string;
+};
+
+type ClienteResponse = {
+  id?: number | string;
+  cliente?: {
+    id?: number | string;
+  };
+};
 
 /* ─── WhatsApp SVG icon ─── */
 function WhatsAppIcon({ size = 24 }: { size?: number }) {
@@ -29,56 +48,214 @@ function PawIcon({ size = 14, color = "#7C3AED" }: { size?: number; color?: stri
   );
 }
 
-/* ─── Quick action row ─── */
-function QuickAction({
-  icon, label, sub, onClick, color = "#7C3AED", bg = "#F5F0FF",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sub: string;
-  onClick: () => void;
-  color?: string;
-  bg?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 12,
-        width: "100%", background: "white",
-        border: "1.5px solid #EDE9FE",
-        borderRadius: 14, padding: "10px 13px",
-        cursor: "pointer", textAlign: "left",
-        transition: "all 0.15s ease",
-      }}
-      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#C4B5FD"; (e.currentTarget as HTMLButtonElement).style.background = "#FAFAFE"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#EDE9FE"; (e.currentTarget as HTMLButtonElement).style.background = "white"; }}
-    >
-      <div style={{ background: bg, borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color }}>
-        {icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#1F2937", margin: 0, lineHeight: 1.2 }}>{label}</p>
-        <p style={{ fontSize: 11.5, color: "#9CA3AF", margin: 0 }}>{sub}</p>
-      </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C4B5FD" strokeWidth="2.5" strokeLinecap="round">
-        <path d="M9 18l6-6-6-6"/>
-      </svg>
-    </button>
-  );
-}
-
 /* ─── Main component ─── */
 export default function FloatingChat() {
   const [open, setOpen]       = useState(false);
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse]     = useState(true);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [chatReady, setChatReady] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isTyping] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const initializedRef = useRef(false);
+  const visitorIdRef = useRef("");
+  const clienteIdRef = useRef<string>("");
+
+  const statusLabel = useMemo(() => {
+    if (registering) return "Preparando chat...";
+    if (loadingHistory) return "Cargando mensajes...";
+    if (chatReady) return "En línea · Respondemos rápido";
+    return "Conectando...";
+  }, [chatReady, loadingHistory, registering]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const getOrCreateVisitorId = () => {
+    if (visitorIdRef.current) return visitorIdRef.current;
+    const stored = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+    if (stored) {
+      visitorIdRef.current = stored;
+      return stored;
+    }
+    const generated =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `visitor-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(VISITOR_STORAGE_KEY, generated);
+    visitorIdRef.current = generated;
+    return generated;
+  };
+
+  const appendMessage = (message: ChatMessage) => {
+    setMessages((current) => {
+      const exists = current.some((item) => String(item.id) === String(message.id));
+      if (exists) return current;
+      return [...current, message];
+    });
+  };
+
+  const ensureClienteId = async () => {
+    if (clienteIdRef.current) return clienteIdRef.current;
+    const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+    if (storedClientId) {
+      clienteIdRef.current = storedClientId;
+      return storedClientId;
+    }
+
+    setRegistering(true);
+    setErrorMessage("");
+    const visitorId = getOrCreateVisitorId();
+    const response = await fetch(apiUrl("/api/clientes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: "Visitante Web",
+        whatsapp: "",
+        notas: `Registrado desde chat web (${visitorId})`,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("No se pudo registrar el visitante.");
+    }
+
+    const data = (await response.json()) as ClienteResponse;
+    const clienteId = data.id ?? data.cliente?.id;
+    if (!clienteId) {
+      throw new Error("La API no devolvió un cliente válido.");
+    }
+
+    const normalizedId = String(clienteId);
+    window.localStorage.setItem(CLIENT_STORAGE_KEY, normalizedId);
+    clienteIdRef.current = normalizedId;
+    return normalizedId;
+  };
+
+  const loadHistory = async (clienteId: string) => {
+    setLoadingHistory(true);
+    setErrorMessage("");
+    try {
+      const response = await fetch(apiUrl(`/api/chat/${clienteId}`));
+      if (!response.ok) {
+        throw new Error("No se pudo cargar el historial.");
+      }
+      const data = (await response.json()) as ChatMessage[];
+      setMessages(Array.isArray(data) ? data : []);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const connectSocket = (clienteId: string) => {
+    if (socketRef.current) return socketRef.current;
+    const socket = io(SOCKET_URL || undefined, {
+      transports: ["websocket", "polling"],
+    });
+
+    socket.on("connect", () => {
+      socket.emit("join", { clienteId, role: "cliente" });
+      setChatReady(true);
+    });
+
+    socket.on("disconnect", () => {
+      setChatReady(false);
+    });
+
+    socket.on("mensaje:nuevo", (message: ChatMessage) => {
+      if (String(message.cliente_id) !== String(clienteIdRef.current)) return;
+      appendMessage(message);
+    });
+
+    socketRef.current = socket;
+    return socket;
+  };
+
+  const initializeChat = async () => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    try {
+      const clienteId = await ensureClienteId();
+      await loadHistory(clienteId);
+      connectSocket(clienteId);
+    } catch (error) {
+      initializedRef.current = false;
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar el chat.");
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleSend = async () => {
+    const messageText = draft.trim();
+    const socket = socketRef.current;
+    const clienteId = clienteIdRef.current;
+    if (!messageText || !socket || !clienteId || sending) return;
+
+    setSending(true);
+    setErrorMessage("");
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        socket.emit(
+          "mensaje:enviar",
+          {
+            cliente_id: clienteId,
+            mensaje: messageText,
+            autor_tipo: "cliente",
+            autor_nombre: "Visitante Web",
+          },
+          (response: { ok: boolean; data?: ChatMessage; error?: string }) => {
+            if (!response?.ok || !response.data) {
+              reject(new Error(response?.error || "No se pudo enviar el mensaje."));
+              return;
+            }
+            appendMessage(response.data);
+            resolve();
+          },
+        );
+      });
+      setDraft("");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo enviar el mensaje.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   /* Appear after 2s, stop pulsing after 6s */
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 2000);
     const t2 = setTimeout(() => setPulse(false), 6000);
     return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  useEffect(() => {
+    getOrCreateVisitorId();
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      void initializeChat();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, open]);
+
+  useEffect(() => {
+    return () => {
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
   }, []);
 
   /* Stop pulse when opened */
@@ -139,7 +316,7 @@ export default function FloatingChat() {
               <p style={{ fontSize: 14, fontWeight: 800, color: "white", margin: 0, lineHeight: 1.2 }}>Zen Spa para Mascotas</p>
               <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ADE80" }} />
-                <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.85)" }}>En línea · Respondemos rápido</span>
+                <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.85)" }}>{statusLabel}</span>
               </div>
             </div>
             <button onClick={() => setOpen(false)}
@@ -148,80 +325,204 @@ export default function FloatingChat() {
             </button>
           </div>
 
-          {/* Greeting bubble */}
-          <div style={{ padding: "14px 16px 4px" }}>
+          <div style={{ padding: "14px 14px 12px" }}>
             <div style={{
-              background: "#F5F0FF",
+              background: "#FAF7FF",
               border: "1px solid #EDE9FE",
-              borderRadius: "4px 18px 18px 18px",
-              padding: "11px 14px",
-              display: "inline-block",
-              maxWidth: "90%",
+              borderRadius: 18,
+              padding: "12px 12px 10px",
             }}>
-              <p style={{ fontSize: 13, color: "#4C1D95", margin: 0, lineHeight: 1.55, fontWeight: 500 }}>
-                ¡Hola! 🌸 ¿En qué podemos ayudarte hoy?
-              </p>
+              <div style={{
+                height: 280,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                paddingRight: 4,
+              }}>
+                <div style={{
+                  background: "#F5F0FF",
+                  border: "1px solid #EDE9FE",
+                  borderRadius: "4px 18px 18px 18px",
+                  padding: "11px 14px",
+                  display: "inline-block",
+                  maxWidth: "90%",
+                  alignSelf: "flex-start",
+                }}>
+                  <p style={{ fontSize: 13, color: "#4C1D95", margin: 0, lineHeight: 1.55, fontWeight: 500 }}>
+                    ¡Hola! 🌸 ¿En qué podemos ayudarte hoy?
+                  </p>
+                </div>
+
+                {messages.map((message) => {
+                  const isVisitor = message.autor_tipo === "cliente";
+                  return (
+                    <div
+                      key={message.id}
+                      style={{
+                        alignSelf: isVisitor ? "flex-end" : "flex-start",
+                        maxWidth: "88%",
+                      }}
+                    >
+                      <div
+                        style={{
+                          background: isVisitor ? "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)" : "#F3F4F6",
+                          color: isVisitor ? "white" : "#374151",
+                          border: isVisitor ? "none" : "1px solid #E5E7EB",
+                          borderRadius: isVisitor ? "18px 18px 4px 18px" : "4px 18px 18px 18px",
+                          padding: "10px 12px",
+                          boxShadow: isVisitor ? "0 6px 18px rgba(124,58,237,0.18)" : "none",
+                        }}
+                      >
+                        <p style={{ fontSize: 12.5, margin: 0, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{message.mensaje}</p>
+                      </div>
+                      <p style={{
+                        fontSize: 10.5,
+                        color: "#9CA3AF",
+                        margin: "4px 4px 0",
+                        textAlign: isVisitor ? "right" : "left",
+                      }}>
+                        {message.autor_nombre}
+                      </p>
+                    </div>
+                  );
+                })}
+
+                {(loadingHistory || registering) && (
+                  <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+                    <div style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "white",
+                      border: "1px solid #EDE9FE",
+                      borderRadius: 999,
+                      padding: "8px 12px",
+                      color: "#7C3AED",
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}>
+                      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                      {registering ? "Registrando visitante..." : "Cargando conversación..."}
+                    </div>
+                  </div>
+                )}
+
+                {isTyping && (
+                  <div style={{ alignSelf: "flex-start" }}>
+                    <div style={{
+                      background: "#F3F4F6",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "4px 18px 18px 18px",
+                      padding: "10px 12px",
+                    }}>
+                      <p style={{ fontSize: 12.5, color: "#6B7280", margin: 0 }}>Escribiendo...</p>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              {errorMessage && (
+                <div style={{
+                  marginTop: 10,
+                  background: "#FEF2F2",
+                  border: "1px solid #FECACA",
+                  color: "#B91C1C",
+                  borderRadius: 12,
+                  padding: "9px 11px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}>
+                  {errorMessage}
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Quick actions */}
-          <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
+            <div style={{
+              marginTop: 10,
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 8,
+            }}>
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void handleSend();
+                  }
+                }}
+                placeholder="Escribí tu mensaje..."
+                rows={1}
+                style={{
+                  flex: 1,
+                  resize: "none",
+                  minHeight: 44,
+                  maxHeight: 96,
+                  borderRadius: 14,
+                  border: "1.5px solid #DDD6FE",
+                  padding: "12px 14px",
+                  fontSize: 13,
+                  color: "#1F2937",
+                  outline: "none",
+                  background: "white",
+                  boxSizing: "border-box",
+                }}
+              />
+              <button
+                onClick={() => void handleSend()}
+                disabled={!draft.trim() || sending || !chatReady}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  border: "none",
+                  cursor: !draft.trim() || sending || !chatReady ? "not-allowed" : "pointer",
+                  background: !draft.trim() || sending || !chatReady ? "#DDD6FE" : "#7C3AED",
+                  color: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: !draft.trim() || sending || !chatReady ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
+                  transition: "all 0.2s ease",
+                  flexShrink: 0,
+                }}
+              >
+                {sending ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={17} />}
+              </button>
+            </div>
 
-            {/* WhatsApp — primary CTA */}
             <a
               href={WA_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                display: "flex", alignItems: "center", gap: 12,
-                background: "#25D366", color: "white",
-                borderRadius: 14, padding: "11px 14px",
+                marginTop: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: "#25D366",
+                color: "white",
+                borderRadius: 14,
+                padding: "10px 12px",
                 textDecoration: "none",
-                boxShadow: "0 3px 14px rgba(37,211,102,0.32)",
+                boxShadow: "0 3px 14px rgba(37,211,102,0.22)",
                 transition: "all 0.15s ease",
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#20BD5C"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#25D366"; }}
             >
-              <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <WhatsAppIcon size={20} />
+              <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 10, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <WhatsAppIcon size={18} />
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 13.5, fontWeight: 800, margin: 0, lineHeight: 1.2 }}>Escribinos por WhatsApp</p>
-                <p style={{ fontSize: 11.5, margin: 0, opacity: 0.88 }}>Consultas y reservas al instante</p>
+                <p style={{ fontSize: 12.5, fontWeight: 800, margin: 0, lineHeight: 1.2 }}>¿Preferís WhatsApp?</p>
+                <p style={{ fontSize: 11, margin: 0, opacity: 0.88 }}>Abrí una conversación directa</p>
               </div>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
             </a>
-
-            {/* Reservar turno */}
-            <QuickAction
-              icon={<Calendar size={16} />}
-              label="Reservar turno"
-              sub="Spa, Guardería y Terapias"
-              onClick={() => { setOpen(false); scrollToReservas(); }}
-            />
-
-            {/* Consultar servicios */}
-            <QuickAction
-              icon={<HelpCircle size={16} />}
-              label="Consultar servicios"
-              sub="Precios y disponibilidad"
-              onClick={() => { window.open(WA_URL, "_blank"); setOpen(false); }}
-              color="#7C3AED"
-              bg="#F5F0FF"
-            />
-
-            {/* Gift Cards */}
-            <QuickAction
-              icon={<Gift size={16} />}
-              label="Gift Cards"
-              sub="Regalá una experiencia Zen"
-              onClick={() => { window.open(WA_URL, "_blank"); setOpen(false); }}
-              color="#F59E0B"
-              bg="#FFFBEB"
-            />
           </div>
 
           {/* Footer */}
@@ -317,6 +618,10 @@ export default function FloatingChat() {
           0%   { transform: scale(1);   opacity: 0.7; }
           70%  { transform: scale(1.5); opacity: 0; }
           100% { transform: scale(1.5); opacity: 0; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </>
