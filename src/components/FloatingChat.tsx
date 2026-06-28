@@ -8,11 +8,21 @@ const WA_MESSAGE = "Hola 🌸 Quiero consultar sobre los servicios de Zen Spa pa
 const WA_URL     = `https://wa.me/${WA_PHONE}?text=${encodeURIComponent(WA_MESSAGE)}`;
 const VISITOR_STORAGE_KEY = "zen-chat-visitor-id";
 const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
-const SOCKET_URL = (
-  import.meta.env.VITE_SOCKET_URL ??
-  import.meta.env.VITE_API_URL ??
-  "https://zen-spa-backend-production-df4d.up.railway.app"
-).replace(/\/$/, "");
+const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production-df4d.up.railway.app";
+
+const getSocketUrl = () => {
+  const configuredUrl = (
+    import.meta.env.VITE_SOCKET_URL ??
+    import.meta.env.VITE_API_URL ??
+    SOCKET_FALLBACK_URL
+  ).replace(/\/$/, "");
+
+  if (typeof window !== "undefined" && window.location.hostname.endsWith("vercel.app")) {
+    return window.location.origin;
+  }
+
+  return configuredUrl;
+};
 
 type ChatMessage = {
   id: number | string;
@@ -159,18 +169,43 @@ export default function FloatingChat() {
   };
 
   const connectSocket = (clienteId: string) => {
-    if (socketRef.current) return socketRef.current;
-    const socket = io(SOCKET_URL || undefined, {
-      transports: ["websocket", "polling"],
+    const existingSocket = socketRef.current;
+
+    if (existingSocket) {
+      if (!existingSocket.connected) {
+        existingSocket.connect();
+      }
+      return existingSocket;
+    }
+
+    const socket = io(getSocketUrl(), {
+      path: "/socket.io/",
+      transports: ["polling", "websocket"],
+      upgrade: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 800,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      autoConnect: true,
     });
 
-    socket.on("connect", () => {
+    const joinChatRoom = () => {
       socket.emit("join", { clienteId, role: "cliente" });
       setChatReady(true);
-    });
+      setErrorMessage("");
+    };
+
+    socket.on("connect", joinChatRoom);
+    socket.io.on("reconnect", joinChatRoom);
 
     socket.on("disconnect", () => {
       setChatReady(false);
+    });
+
+    socket.on("connect_error", () => {
+      setChatReady(false);
+      setErrorMessage("Reconectando chat...");
     });
 
     socket.on("mensaje:nuevo", (message: ChatMessage) => {
@@ -202,6 +237,12 @@ export default function FloatingChat() {
     const socket = socketRef.current;
     const clienteId = clienteIdRef.current;
     if (!messageText || !socket || !clienteId || sending) return;
+
+    if (!socket.connected) {
+      socket.connect();
+      setErrorMessage("Reconectando chat...");
+      return;
+    }
 
     setSending(true);
     setErrorMessage("");
