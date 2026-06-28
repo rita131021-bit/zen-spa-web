@@ -11,7 +11,7 @@ const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
 const SOCKET_URL = (
   import.meta.env.VITE_SOCKET_URL ??
   import.meta.env.VITE_API_URL ??
-  ""
+  "https://zen-spa-backend-production-df4d.up.railway.app"
 ).replace(/\/$/, "");
 
 type ChatMessage = {
