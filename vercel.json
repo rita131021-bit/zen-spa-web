@@ -12,6 +12,10 @@
       "destination": "https://zen-spa-backend-production-df4d.up.railway.app/api/:path*"
     },
     {
+      "source": "/socket.io/",
+      "destination": "https://zen-spa-backend-production-df4d.up.railway.app/socket.io/"
+    },
+    {
       "source": "/socket.io/:path*",
       "destination": "https://zen-spa-backend-production-df4d.up.railway.app/socket.io/:path*"
     },
