@@ -71,6 +71,14 @@ function getCreatedId(data: CreatedEntityResponse, key: "cliente" | "mascota") {
   return id;
 }
 
+function weightToNumber(value: string) {
+  if (value.includes("Menos")) return 4;
+  if (value.includes("Mas") || value.includes("Más")) return 31;
+  const numbers = value.match(/\d+/g)?.map(Number) ?? [];
+  if (numbers.length >= 2) return Math.round((numbers[0] + numbers[1]) / 2);
+  return numbers[0] ?? null;
+}
+
 function pickBackendService(services: BackendService[], selected: ServiceOption | undefined, category: string, species: string) {
   const active = services.filter(service => service.activo === undefined || service.activo === null || service.activo === true || Number(service.activo) !== 0);
   const label = normalizeText(selected?.label);
@@ -610,7 +618,7 @@ export default function ReservasSection() {
           nombre: petName.trim(),
           especie: species,
           raza: "",
-          peso: weight,
+          peso: weightToNumber(weight),
           edad: age,
           sexo: "",
           notas: notes,
