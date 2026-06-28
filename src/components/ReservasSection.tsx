@@ -541,7 +541,7 @@ export default function ReservasSection() {
         customFood:   specialFood ? customFood   : "",
         bringsBlanket, bringsBed, extraNotes,
       };
-      const res = await fetch(apiUrl("/api/turnos"), {
+      const res = await fetch(apiUrl("/api/bookings"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
