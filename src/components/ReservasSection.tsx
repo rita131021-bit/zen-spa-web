@@ -45,6 +45,52 @@ interface PriceEntry {
   visible: boolean;
 }
 
+interface BackendService {
+  id: number | string;
+  nombre: string;
+  categoria?: string | null;
+  activo?: number | boolean | null;
+}
+
+interface CreatedEntityResponse {
+  id?: number | string;
+  cliente?: { id?: number | string };
+  mascota?: { id?: number | string };
+}
+
+function normalizeText(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getCreatedId(data: CreatedEntityResponse, key: "cliente" | "mascota") {
+  const id = data.id ?? data[key]?.id;
+  if (!id) throw new Error("La API no devolvio un identificador valido.");
+  return id;
+}
+
+function pickBackendService(services: BackendService[], selected: ServiceOption | undefined, category: string, species: string) {
+  const active = services.filter(service => service.activo === undefined || service.activo === null || service.activo === true || Number(service.activo) !== 0);
+  const label = normalizeText(selected?.label);
+  const categoryKey = normalizeText(category);
+  const speciesKey = normalizeText(species);
+
+  const byName = (needle: string) => active.find(service => normalizeText(service.nombre).includes(needle));
+
+  if (categoryKey === "guarderia") {
+    return byName(speciesKey === "gato" ? "felina" : "canina") ?? active.find(service => normalizeText(service.categoria).includes("guarderia"));
+  }
+  if (label.includes("premium")) return byName("premium");
+  if (label.includes("relax")) return byName("relax");
+  if (label.includes("armonia")) return byName("armonia") ?? byName("spa");
+  if (categoryKey === "terapias") return byName("terapia") ?? byName("holistica");
+  if (label.includes("peluqueria") || label.includes("bano")) return byName("peluqueria") ?? byName("bano");
+
+  return active.find(service => normalizeText(service.categoria).includes(categoryKey)) ?? active[0];
+}
+
 const CATEGORIES: ServiceCategory[] = [
   {
     id: "spa", label: "Spa & Bienestar", emoji: "✦",
@@ -522,29 +568,83 @@ export default function ReservasSection() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const payload = {
-        category,
-        serviceId: selectedSvc?.priceId ?? service ?? "",
-        service: selectedSvc?.label ?? service ?? "",
-        price: finalPrice,
-        species, petName, weight, age,
-        date:      !isGuarderia && spaDate   ? spaDate.toISOString()   : null,
-        hour:      !isGuarderia              ? spaHour                 : null,
-        startDate:  isGuarderia && startDate ? startDate.toISOString() : null,
-        startHour:  isGuarderia              ? startHour               : null,
-        endDate:    isGuarderia && endDate   ? endDate.toISOString()   : null,
-        endHour:    isGuarderia              ? endHour                 : null,
-        specialFood,
-        foodBrand:    specialFood ? foodBrand    : "",
-        foodPortion:  specialFood ? foodPortion  : "",
-        foodSchedule: specialFood ? foodSchedule : "",
-        customFood:   specialFood ? customFood   : "",
-        bringsBlanket, bringsBed, extraNotes,
-      };
+      const selectedDate = isGuarderia ? startDate : spaDate;
+      const selectedHour = isGuarderia ? startHour : spaHour;
+      if (!selectedDate || !selectedHour) throw new Error("Fecha u horario invalido.");
+
+      const notes = [
+        "Solicitud creada desde la web",
+        `Servicio solicitado: ${selectedSvc?.label ?? service}`,
+        `Precio mostrado: ${finalPrice}`,
+        `Mascota: ${petName} (${species})`,
+        `Peso: ${weight}`,
+        `Edad: ${age}`,
+        isGuarderia && endDate ? `Egreso: ${toYMD(endDate)} ${endHour}` : null,
+        specialFood ? `Alimentacion especial: ${foodBrand || "Sin marca"} - ${foodPortion || "Sin porcion"} - ${foodSchedule || "Sin horario"}` : null,
+        specialFood && customFood ? `Detalle alimento: ${customFood}` : null,
+        bringsBlanket ? "Trae manta" : "No trae manta",
+        bringsBed ? "Trae cama" : "No trae cama",
+        extraNotes ? `Notas: ${extraNotes}` : null,
+      ].filter(Boolean).join(" | ");
+
+      const clienteRes = await fetch(apiUrl("/api/clientes"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: `Cliente Web - ${petName.trim()}`,
+          telefono: "",
+          whatsapp: "",
+          email: "",
+          direccion: "",
+          notas: notes,
+        }),
+      });
+      if (!clienteRes.ok) throw new Error("No se pudo crear el cliente web.");
+      const clienteId = getCreatedId(await clienteRes.json(), "cliente");
+
+      const mascotaRes = await fetch(apiUrl("/api/mascotas"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          nombre: petName.trim(),
+          especie: species,
+          raza: "",
+          peso: weight,
+          edad: age,
+          sexo: "",
+          notas: notes,
+          tipo_mascota: species,
+          talla: weight,
+          alimento_tipo: specialFood ? [foodBrand, foodPortion, foodSchedule].filter(Boolean).join(" - ") : "",
+          alimento_especial: specialFood,
+          horario_preferido: selectedHour,
+          camita: bringsBed,
+          mantita: bringsBlanket,
+        }),
+      });
+      if (!mascotaRes.ok) throw new Error("No se pudo crear la mascota.");
+      const mascotaId = getCreatedId(await mascotaRes.json(), "mascota");
+
+      const serviciosRes = await fetch(apiUrl("/api/servicios/activos/true"));
+      if (!serviciosRes.ok) throw new Error("No se pudieron cargar los servicios.");
+      const backendServices = (await serviciosRes.json()) as BackendService[];
+      const backendService = pickBackendService(backendServices, selectedSvc, category, species);
+      if (!backendService) throw new Error("No hay servicios activos para crear el turno.");
+
       const res = await fetch(apiUrl("/api/turnos"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          mascota_id: mascotaId,
+          servicio_id: backendService.id,
+          fecha: toYMD(selectedDate),
+          hora: selectedHour,
+          fecha_egreso: isGuarderia && endDate ? toYMD(endDate) : null,
+          hora_egreso: isGuarderia ? endHour : null,
+          observaciones: notes,
+        }),
       });
       if (!res.ok) throw new Error();
       const createdBooking = await res.json();
