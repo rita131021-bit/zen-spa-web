@@ -52,6 +52,13 @@ interface BackendService {
   activo?: number | boolean | null;
 }
 
+interface BackendClient {
+  id: number | string;
+  nombre: string;
+  telefono?: string | null;
+  whatsapp?: string | null;
+}
+
 interface CreatedEntityResponse {
   id?: number | string;
   cliente?: { id?: number | string };
@@ -69,6 +76,10 @@ function getCreatedId(data: CreatedEntityResponse, key: "cliente" | "mascota") {
   const id = data.id ?? data[key]?.id;
   if (!id) throw new Error("La API no devolvio un identificador valido.");
   return id;
+}
+
+function normalizePhone(value: string | null | undefined) {
+  return (value ?? "").replace(/\D/g, "");
 }
 
 function weightToNumber(value: string) {
@@ -452,6 +463,17 @@ export default function ReservasSection() {
       .catch(() => { /* keep fallback prices */ });
   }, []);
 
+  useEffect(() => {
+    const storedName = window.localStorage.getItem("zen-chat-cliente-nombre") || "";
+    const storedWhatsapp = window.localStorage.getItem("zen-chat-cliente-whatsapp") || "";
+    if (storedName) setOwnerName(storedName);
+    if (storedWhatsapp) setOwnerWhatsapp(storedWhatsapp);
+  }, []);
+
+  // Customer profile
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerWhatsapp, setOwnerWhatsapp] = useState("");
+
   // Pet profile
   const [species,  setSpecies]  = useState<"Perro"|"Gato">("Perro");
   const [petName,  setPetName]  = useState("");
@@ -565,6 +587,14 @@ export default function ReservasSection() {
       setSubmitError("Elegí un servicio antes de solicitar el turno.");
       return;
     }
+    if (!ownerName.trim()) {
+      setSubmitError("Ingresá tu nombre para identificar la reserva.");
+      return;
+    }
+    if (!normalizePhone(ownerWhatsapp)) {
+      setSubmitError("Ingresá tu WhatsApp para sumar tus checks de fidelidad.");
+      return;
+    }
     if (!petName.trim()) {
       setSubmitError("Ingresá el nombre de tu mascota.");
       return;
@@ -582,6 +612,8 @@ export default function ReservasSection() {
 
       const notes = [
         "Solicitud creada desde la web",
+        `Responsable: ${ownerName.trim()}`,
+        `WhatsApp: ${ownerWhatsapp.trim()}`,
         `Servicio solicitado: ${selectedSvc?.label ?? service}`,
         `Precio mostrado: ${finalPrice}`,
         `Mascota: ${petName} (${species})`,
@@ -595,20 +627,34 @@ export default function ReservasSection() {
         extraNotes ? `Notas: ${extraNotes}` : null,
       ].filter(Boolean).join(" | ");
 
-      const clienteRes = await fetch(apiUrl("/api/clientes"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: `Cliente Web - ${petName.trim()}`,
-          telefono: "",
-          whatsapp: "",
-          email: "",
-          direccion: "",
-          notas: notes,
-        }),
-      });
-      if (!clienteRes.ok) throw new Error("No se pudo crear el cliente web.");
-      const clienteId = getCreatedId(await clienteRes.json(), "cliente");
+      const ownerPhone = normalizePhone(ownerWhatsapp);
+      let clienteId: number | string | null = null;
+
+      const clientesRes = await fetch(apiUrl("/api/clientes"));
+      if (clientesRes.ok) {
+        const clientes = (await clientesRes.json()) as BackendClient[];
+        const existingClient = clientes.find((cliente) =>
+          normalizePhone(cliente.whatsapp) === ownerPhone || normalizePhone(cliente.telefono) === ownerPhone
+        );
+        if (existingClient) clienteId = existingClient.id;
+      }
+
+      if (!clienteId) {
+        const clienteRes = await fetch(apiUrl("/api/clientes"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: ownerName.trim(),
+            telefono: ownerWhatsapp.trim(),
+            whatsapp: ownerWhatsapp.trim(),
+            email: "",
+            direccion: "",
+            notas: notes,
+          }),
+        });
+        if (!clienteRes.ok) throw new Error("No se pudo crear el cliente web.");
+        clienteId = getCreatedId(await clienteRes.json(), "cliente");
+      }
 
       const mascotaRes = await fetch(apiUrl("/api/mascotas"), {
         method: "POST",
@@ -779,6 +825,18 @@ export default function ReservasSection() {
             <div style={{ background: "linear-gradient(135deg,#F5F0FF,#EDE9FE)", border: "1px solid #DDD6FE", borderRadius: 12, padding: "11px 13px", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: 12.5, color: "#6D28D9", fontWeight: 700 }}>Total final</span>
               <span style={{ fontSize: 19, color: "#4C1D95", fontWeight: 900 }}>{finalPrice}</span>
+            </div>
+
+            <SDivider />
+
+            <SLabel>Datos del responsable</SLabel>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11.5, color: "#9CA3AF", fontWeight: 600, display: "block", marginBottom: 4 }}>Tu nombre</label>
+              <input placeholder="Nombre y apellido" value={ownerName} onChange={e => setOwnerName(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11.5, color: "#9CA3AF", fontWeight: 600, display: "block", marginBottom: 4 }}>WhatsApp</label>
+              <input placeholder="Ej: 343 526 3898" value={ownerWhatsapp} onChange={e => setOwnerWhatsapp(e.target.value)} style={inputStyle} />
             </div>
 
             <SDivider />
