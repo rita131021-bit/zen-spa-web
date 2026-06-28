@@ -8,6 +8,8 @@ const WA_MESSAGE = "Hola 🌸 Quiero consultar sobre los servicios de Zen Spa pa
 const WA_URL     = `https://wa.me/${WA_PHONE}?text=${encodeURIComponent(WA_MESSAGE)}`;
 const VISITOR_STORAGE_KEY = "zen-chat-visitor-id";
 const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
+const CLIENT_NAME_STORAGE_KEY = "zen-chat-cliente-nombre";
+const CLIENT_WHATSAPP_STORAGE_KEY = "zen-chat-cliente-whatsapp";
 const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production-df4d.up.railway.app";
 
 const getSocketUrl = () => {
@@ -38,6 +40,13 @@ type ClienteResponse = {
   cliente?: {
     id?: number | string;
   };
+};
+
+type ChatStep = "name" | "whatsapp" | "ready";
+
+type VisitorProfile = {
+  name: string;
+  whatsapp: string;
 };
 
 /* ─── WhatsApp SVG icon ─── */
@@ -74,19 +83,41 @@ export default function FloatingChat() {
   const [registering, setRegistering] = useState(false);
   const [chatReady, setChatReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [onboardingStep, setOnboardingStep] = useState<ChatStep>("name");
+  const [visitorName, setVisitorName] = useState("");
   const [isTyping] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
   const visitorIdRef = useRef("");
   const clienteIdRef = useRef<string>("");
+  const visitorNameRef = useRef("Visitante Web");
 
   const statusLabel = useMemo(() => {
+    if (onboardingStep === "name") return "Decinos tu nombre";
+    if (onboardingStep === "whatsapp") return "Dejanos tu WhatsApp";
     if (registering) return "Preparando chat...";
     if (loadingHistory) return "Cargando mensajes...";
     if (chatReady) return "En línea · Respondemos rápido";
     return "Conectando...";
-  }, [chatReady, loadingHistory, registering]);
+  }, [chatReady, loadingHistory, onboardingStep, registering]);
+
+  const introMessage = useMemo(() => {
+    if (onboardingStep === "name") return "¡Hola! 🌸 Para poder ayudarte mejor, decinos tu nombre.";
+    if (onboardingStep === "whatsapp") {
+      return "Gracias" + (visitorName ? ", " + visitorName : "") + ". Ahora dejanos tu WhatsApp para que Romina sepa a quién responder.";
+    }
+    return "¡Hola" + (visitorName ? ", " + visitorName : "") + "! 🌸 ¿En qué podemos ayudarte hoy?";
+  }, [onboardingStep, visitorName]);
+
+  const inputPlaceholder =
+    onboardingStep === "name"
+      ? "Tu nombre..."
+      : onboardingStep === "whatsapp"
+        ? "Tu WhatsApp..."
+        : "Escribí tu mensaje...";
+
+  const canSend = Boolean(draft.trim()) && !sending && (onboardingStep !== "ready" || chatReady);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -116,11 +147,23 @@ export default function FloatingChat() {
     });
   };
 
-  const ensureClienteId = async () => {
+  const loadStoredProfile = () => {
+    const storedName = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
+    const storedWhatsapp = window.localStorage.getItem(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
+    if (storedName) {
+      setVisitorName(storedName);
+      visitorNameRef.current = storedName;
+    }
+    return { storedName, storedWhatsapp };
+  };
+
+  const ensureClienteId = async (profile: VisitorProfile) => {
     if (clienteIdRef.current) return clienteIdRef.current;
     const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
     if (storedClientId) {
       clienteIdRef.current = storedClientId;
+      setOnboardingStep("ready");
+      loadStoredProfile();
       return storedClientId;
     }
 
@@ -131,8 +174,9 @@ export default function FloatingChat() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        nombre: "Visitante Web",
-        whatsapp: "",
+        nombre: profile.name,
+        whatsapp: profile.whatsapp,
+        telefono: profile.whatsapp,
         notas: `Registrado desde chat web (${visitorId})`,
       }),
     });
@@ -149,7 +193,12 @@ export default function FloatingChat() {
 
     const normalizedId = String(clienteId);
     window.localStorage.setItem(CLIENT_STORAGE_KEY, normalizedId);
+    window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, profile.name);
+    window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
     clienteIdRef.current = normalizedId;
+    visitorNameRef.current = profile.name;
+    setVisitorName(profile.name);
+    setOnboardingStep("ready");
     return normalizedId;
   };
 
@@ -221,9 +270,19 @@ export default function FloatingChat() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     try {
-      const clienteId = await ensureClienteId();
-      await loadHistory(clienteId);
-      connectSocket(clienteId);
+      const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+      if (!storedClientId) {
+        loadStoredProfile();
+        setOnboardingStep("name");
+        setChatReady(false);
+        return;
+      }
+
+      clienteIdRef.current = storedClientId;
+      loadStoredProfile();
+      setOnboardingStep("ready");
+      await loadHistory(storedClientId);
+      connectSocket(storedClientId);
     } catch (error) {
       initializedRef.current = false;
       setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar el chat.");
@@ -232,11 +291,56 @@ export default function FloatingChat() {
     }
   };
 
+  const completeVisitorProfile = async (whatsapp: string) => {
+    const name = visitorName.trim();
+    if (!name) {
+      setOnboardingStep("name");
+      setErrorMessage("Primero necesitamos tu nombre.");
+      return;
+    }
+
+    setSending(true);
+    setRegistering(true);
+    setErrorMessage("");
+    try {
+      const clienteId = await ensureClienteId({ name, whatsapp });
+      await loadHistory(clienteId);
+      connectSocket(clienteId);
+      setDraft("");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo registrar el visitante.");
+    } finally {
+      setSending(false);
+      setRegistering(false);
+    }
+  };
+
   const handleSend = async () => {
     const messageText = draft.trim();
+    if (!messageText || sending) return;
+
+    if (onboardingStep === "name") {
+      if (messageText.length < 2) {
+        setErrorMessage("Escribí tu nombre para que podamos identificarte.");
+        return;
+      }
+      setVisitorName(messageText);
+      visitorNameRef.current = messageText;
+      window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, messageText);
+      setOnboardingStep("whatsapp");
+      setErrorMessage("");
+      setDraft("");
+      return;
+    }
+
+    if (onboardingStep === "whatsapp") {
+      await completeVisitorProfile(messageText);
+      return;
+    }
+
     const socket = socketRef.current;
     const clienteId = clienteIdRef.current;
-    if (!messageText || !socket || !clienteId || sending) return;
+    if (!socket || !clienteId) return;
 
     if (!socket.connected) {
       socket.connect();
@@ -255,7 +359,7 @@ export default function FloatingChat() {
             cliente_id: clienteId,
             mensaje: messageText,
             autor_tipo: "cliente",
-            autor_nombre: "Visitante Web",
+            autor_nombre: visitorNameRef.current || "Visitante Web",
           },
           (response: { ok: boolean; data?: ChatMessage; error?: string }) => {
             if (!response?.ok || !response.data) {
@@ -395,7 +499,7 @@ export default function FloatingChat() {
                   alignSelf: "flex-start",
                 }}>
                   <p style={{ fontSize: 13, color: "#4C1D95", margin: 0, lineHeight: 1.55, fontWeight: 500 }}>
-                    ¡Hola! 🌸 ¿En qué podemos ayudarte hoy?
+                    {introMessage}
                   </p>
                 </div>
 
@@ -500,7 +604,7 @@ export default function FloatingChat() {
                     void handleSend();
                   }
                 }}
-                placeholder="Escribí tu mensaje..."
+                placeholder={inputPlaceholder}
                 rows={1}
                 style={{
                   flex: 1,
@@ -519,19 +623,19 @@ export default function FloatingChat() {
               />
               <button
                 onClick={() => void handleSend()}
-                disabled={!draft.trim() || sending || !chatReady}
+                disabled={!canSend}
                 style={{
                   width: 44,
                   height: 44,
                   borderRadius: 14,
                   border: "none",
-                  cursor: !draft.trim() || sending || !chatReady ? "not-allowed" : "pointer",
-                  background: !draft.trim() || sending || !chatReady ? "#DDD6FE" : "#7C3AED",
+                  cursor: !canSend ? "not-allowed" : "pointer",
+                  background: !canSend ? "#DDD6FE" : "#7C3AED",
                   color: "white",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: !draft.trim() || sending || !chatReady ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
+                  boxShadow: !canSend ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
                   transition: "all 0.2s ease",
                   flexShrink: 0,
                 }}
