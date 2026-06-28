@@ -8,7 +8,11 @@ const WA_MESSAGE = "Hola 🌸 Quiero consultar sobre los servicios de Zen Spa pa
 const WA_URL     = `https://wa.me/${WA_PHONE}?text=${encodeURIComponent(WA_MESSAGE)}`;
 const VISITOR_STORAGE_KEY = "zen-chat-visitor-id";
 const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
-const SOCKET_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+const SOCKET_URL = (
+  import.meta.env.VITE_SOCKET_URL ??
+  import.meta.env.VITE_API_URL ??
+  ""
+).replace(/\/$/, "");
 
 type ChatMessage = {
   id: number | string;
