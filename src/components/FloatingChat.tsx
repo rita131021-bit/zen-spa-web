@@ -854,8 +854,10 @@ export default function FloatingChat() {
                   onClick={() => { void handleSend(); }}
                   disabled={!canSend}
                   style={{
-                    width: 44,
+                    minWidth: 84,
                     height: 44,
+                    padding: "0 14px",
+                    gap: 6,
                     borderRadius: 14,
                     border: "none",
                     cursor: !canSend ? "not-allowed" : "pointer",
@@ -867,9 +869,18 @@ export default function FloatingChat() {
                     boxShadow: !canSend ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
                     transition: "all 0.2s ease",
                     flexShrink: 0,
+                    fontSize: 12,
+                    fontWeight: 800,
                   }}
                 >
-                  {sending ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={17} />}
+                  {sending ? (
+                    <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      Enviar
+                    </>
+                  )}
                 </button>
               </form>
             )}
