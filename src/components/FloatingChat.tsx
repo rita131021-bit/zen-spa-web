@@ -463,6 +463,28 @@ export default function FloatingChat() {
     void submitVisitorRegistration();
   };
 
+  const resetVisitorProfile = () => {
+    removeStoredValue(CLIENT_STORAGE_KEY);
+    removeStoredValue(CLIENT_NAME_STORAGE_KEY);
+    removeStoredValue(CLIENT_WHATSAPP_STORAGE_KEY);
+    removeStoredValue(CLIENT_TOPIC_STORAGE_KEY);
+    clienteIdRef.current = "";
+    visitorNameRef.current = "";
+    visitorTopicRef.current = "";
+    registrationStartedRef.current = false;
+    initializedRef.current = false;
+    setVisitorName("");
+    setVisitorWhatsapp("");
+    setVisitorTopic("");
+    setMessages([]);
+    setDraft("");
+    setChatReady(false);
+    setOnboardingStep("name");
+    setErrorMessage("Cargá tu nombre, WhatsApp y motivo para abrir una conversación nueva.");
+    socketRef.current?.disconnect();
+    socketRef.current = null;
+  };
+
   const handleSend = async () => {
     const messageText = draft.trim();
     if (!messageText || sending) return;
@@ -488,7 +510,11 @@ export default function FloatingChat() {
 
     const socket = socketRef.current;
     const clienteId = clienteIdRef.current;
-    if (!clienteId) return;
+    if (!clienteId) {
+      setOnboardingStep("name");
+      setErrorMessage("Necesitamos tus datos para enviar el mensaje al panel.");
+      return;
+    }
 
     setSending(true);
     setErrorMessage("");
@@ -863,7 +889,46 @@ export default function FloatingChat() {
                 </button>
               </form>
             ) : (
-              <form
+              <>
+                <div style={{
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "9px 11px",
+                  borderRadius: 14,
+                  background: "#F5F3FF",
+                  border: "1px solid #DDD6FE",
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#6D28D9" }}>
+                      Estás escribiendo como
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {visitorName || "Cliente web"} · {visitorWhatsapp || "Sin WhatsApp"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetVisitorProfile}
+                    style={{
+                      flexShrink: 0,
+                      border: "1px solid #C4B5FD",
+                      background: "white",
+                      color: "#6D28D9",
+                      borderRadius: 12,
+                      padding: "8px 10px",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cambiar datos
+                  </button>
+                </div>
+
+                <form
                 onSubmit={handleChatSubmit}
                 style={{
                   marginTop: 10,
@@ -934,6 +999,7 @@ export default function FloatingChat() {
                   )}
                 </button>
               </form>
+              </>
             )}
           </div>
 
