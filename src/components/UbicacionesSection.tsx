@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Navigation, Send } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 function PawIcon({ className = "", style: s }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -14,6 +15,15 @@ function PawIcon({ className = "", style: s }: { className?: string; style?: Rea
 }
 
 import type React from "react";
+
+const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
+const CLIENT_NAME_STORAGE_KEY = "zen-chat-cliente-nombre";
+const CLIENT_WHATSAPP_STORAGE_KEY = "zen-chat-cliente-whatsapp";
+
+type ClienteResponse = {
+  id?: number | string;
+  cliente?: { id?: number | string };
+};
 
 function MapVisual() {
   return (
@@ -41,6 +51,74 @@ function MapVisual() {
 
 export default function UbicacionesSection() {
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [chatFeedback, setChatFeedback] = useState("");
+
+  const getStoredProfile = () => {
+    const name = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "Visitante Web";
+    const whatsapp = window.localStorage.getItem(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
+    return { name, whatsapp };
+  };
+
+  const ensureChatClienteId = async () => {
+    const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+    if (storedClientId) return storedClientId;
+
+    const profile = getStoredProfile();
+    const response = await fetch(apiUrl("/api/clientes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: profile.name,
+        telefono: profile.whatsapp,
+        whatsapp: profile.whatsapp,
+        notas: "Registrado desde chat de ubicaciones web",
+      }),
+    });
+
+    if (!response.ok) throw new Error("No se pudo identificar el chat.");
+
+    const data = (await response.json()) as ClienteResponse;
+    const clienteId = data.id ?? data.cliente?.id;
+    if (!clienteId) throw new Error("La API no devolvió un cliente válido.");
+
+    const normalizedId = String(clienteId);
+    window.localStorage.setItem(CLIENT_STORAGE_KEY, normalizedId);
+    if (profile.name) window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, profile.name);
+    if (profile.whatsapp) window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
+    return normalizedId;
+  };
+
+  const sendMiniChatMessage = async () => {
+    const text = message.trim();
+    if (!text || sending) return;
+
+    setSending(true);
+    setChatFeedback("");
+
+    try {
+      const clienteId = await ensureChatClienteId();
+      const profile = getStoredProfile();
+      const response = await fetch(apiUrl(`/api/chat/${clienteId}`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mensaje: text,
+          autor_tipo: "cliente",
+          autor_nombre: profile.name || "Visitante Web",
+        }),
+      });
+
+      if (!response.ok) throw new Error("No se pudo enviar el mensaje.");
+
+      setMessage("");
+      setChatFeedback("Mensaje enviado. Te respondemos por acá.");
+    } catch (error) {
+      setChatFeedback(error instanceof Error ? error.message : "No se pudo enviar el mensaje.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <section id="ubicaciones" className="py-12 bg-white">
@@ -224,26 +302,27 @@ export default function UbicacionesSection() {
                     border: "none",
                     minWidth: 0,
                   }}
-                  onKeyDown={(e) => { if (e.key === "Enter" && message.trim()) setMessage(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") void sendMiniChatMessage(); }}
                 />
                 <button
-                  onClick={() => { if (message.trim()) setMessage(""); }}
+                  onClick={() => { void sendMiniChatMessage(); }}
                   style={{
                     color: "#7C3AED",
                     background: "none",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: sending ? "not-allowed" : "pointer",
                     padding: 0,
                     display: "flex",
                     alignItems: "center",
                     flexShrink: 0,
                   }}
+                  disabled={sending}
                 >
                   <Send size={14} />
                 </button>
               </div>
-              <p style={{ textAlign: "center", fontSize: 10, color: "#9CA3AF", marginTop: 5 }}>
-                Respuesta rápida y personalizada
+              <p style={{ textAlign: "center", fontSize: 10, color: chatFeedback ? "#7C3AED" : "#9CA3AF", marginTop: 5 }}>
+                {chatFeedback || "Respuesta rápida y personalizada"}
               </p>
             </div>
           </div>
