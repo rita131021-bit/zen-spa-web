@@ -70,17 +70,17 @@ export default function FloatingChat() {
   const [errorMessage, setErrorMessage] = useState("");
   const [onboardingStep, setOnboardingStep] = useState<ChatStep>("name");
   const [visitorName, setVisitorName] = useState("");
+  const [visitorWhatsapp, setVisitorWhatsapp] = useState("");
   const [isTyping] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
   const visitorIdRef = useRef("");
   const clienteIdRef = useRef<string>("");
-  const visitorNameRef = useRef("Visitante Web");
+  const visitorNameRef = useRef("");
 
   const statusLabel = useMemo(() => {
-    if (onboardingStep === "name") return "Decinos tu nombre";
-    if (onboardingStep === "whatsapp") return "Dejanos tu WhatsApp";
+    if (onboardingStep !== "ready") return "Registrá tus datos";
     if (registering) return "Preparando chat...";
     if (loadingHistory) return "Cargando mensajes...";
     if (chatReady) return "En línea · Respondemos rápido";
@@ -88,27 +88,23 @@ export default function FloatingChat() {
   }, [chatReady, loadingHistory, onboardingStep, registering]);
 
   const introMessage = useMemo(() => {
-    if (onboardingStep === "name") return "¡Hola! 🌸 Para poder ayudarte mejor, decinos tu nombre.";
-    if (onboardingStep === "whatsapp") {
-      return "Gracias" + (visitorName ? ", " + visitorName : "") + ". Ahora dejanos tu WhatsApp para que Romina sepa a quién responder.";
+    if (onboardingStep !== "ready") {
+      return "¡Hola! 🌸 Dejanos tu nombre y WhatsApp para abrir tu conversación.";
     }
     return "¡Hola" + (visitorName ? ", " + visitorName : "") + "! 🌸 ¿En qué podemos ayudarte hoy?";
   }, [onboardingStep, visitorName]);
 
-  const inputPlaceholder =
-    onboardingStep === "name"
-      ? "Tu nombre..."
-      : onboardingStep === "whatsapp"
-        ? "Tu WhatsApp..."
-        : "Escribí tu mensaje...";
 
-  const canSend = Boolean(draft.trim()) && !sending && !registering;
+  const canSend = onboardingStep === "ready" && Boolean(draft.trim()) && !sending && !registering;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const normalizePhone = (value: string) => value.replace(/D/g, "");
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
+  const canRegister =
+    visitorName.trim().length >= 2 && normalizePhone(visitorWhatsapp).length >= 6 && !sending && !registering;
 
   const findExistingClienteId = async (whatsapp: string) => {
     const target = normalizePhone(whatsapp);
@@ -157,23 +153,27 @@ export default function FloatingChat() {
   };
 
   const loadStoredProfile = () => {
-    const storedName = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
+    const storedNameRaw = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
+    const storedName = storedNameRaw && storedNameRaw !== "Visitante Web" ? storedNameRaw : "";
     const storedWhatsapp = window.localStorage.getItem(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
-    if (storedName) {
-      setVisitorName(storedName);
-      visitorNameRef.current = storedName;
-    }
+    setVisitorName(storedName);
+    setVisitorWhatsapp(storedWhatsapp);
+    visitorNameRef.current = storedName;
     return { storedName, storedWhatsapp };
   };
 
   const ensureClienteId = async (profile: VisitorProfile) => {
     if (clienteIdRef.current) return clienteIdRef.current;
     const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
-    if (storedClientId) {
+    if (storedClientId && profile.name && profile.name !== "Visitante Web" && profile.whatsapp) {
       clienteIdRef.current = storedClientId;
       setOnboardingStep("ready");
-      loadStoredProfile();
       return storedClientId;
+    }
+
+    if (storedClientId) {
+      window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+      clienteIdRef.current = "";
     }
 
     setRegistering(true);
@@ -297,7 +297,7 @@ export default function FloatingChat() {
       body: JSON.stringify({
         mensaje: messageText,
         autor_tipo: "cliente",
-        autor_nombre: visitorNameRef.current || "Visitante Web",
+        autor_nombre: visitorNameRef.current || visitorName || "Cliente Web",
       }),
     });
 
@@ -315,19 +315,20 @@ export default function FloatingChat() {
     initializedRef.current = true;
     try {
       const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
-      if (!storedClientId) {
-        loadStoredProfile();
+      const storedProfile = loadStoredProfile();
+      if (!storedClientId || !storedProfile.storedName || !storedProfile.storedWhatsapp) {
+        window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+        clienteIdRef.current = "";
         setOnboardingStep("name");
         setChatReady(false);
         return;
       }
 
       clienteIdRef.current = storedClientId;
-      const storedProfile = loadStoredProfile();
       setOnboardingStep("ready");
       const history = await loadHistory(storedClientId);
       if ((history ?? []).length === 0) {
-        const name = storedProfile.storedName || visitorNameRef.current || "Visitante Web";
+        const name = storedProfile.storedName || visitorNameRef.current || "Cliente Web";
         const whatsapp = storedProfile.storedWhatsapp;
         await sendMessageByApi(
           storedClientId,
@@ -370,6 +371,30 @@ export default function FloatingChat() {
       setSending(false);
       setRegistering(false);
     }
+  };
+
+  const handleVisitorRegistration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = visitorName.trim();
+    const whatsapp = visitorWhatsapp.trim();
+
+    if (name.length < 2) {
+      setErrorMessage("Escribí tu nombre para que podamos identificarte.");
+      return;
+    }
+
+    if (normalizePhone(whatsapp).length < 6) {
+      setErrorMessage("Escribí un WhatsApp válido para poder responderte.");
+      return;
+    }
+
+    visitorNameRef.current = name;
+    setVisitorName(name);
+    window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, name);
+    window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, whatsapp);
+    window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+    clienteIdRef.current = "";
+    await completeVisitorProfile(whatsapp);
   };
 
   const handleSend = async () => {
@@ -423,7 +448,7 @@ export default function FloatingChat() {
                   cliente_id: clienteId,
                   mensaje: messageText,
                   autor_tipo: "cliente",
-                  autor_nombre: visitorNameRef.current || "Visitante Web",
+                  autor_nombre: visitorNameRef.current || visitorName || "Cliente Web",
                 },
                 (response: { ok: boolean; data?: ChatMessage; error?: string }) => {
                   window.clearTimeout(timeout);
@@ -671,63 +696,131 @@ export default function FloatingChat() {
               )}
             </div>
 
-            <form
-              onSubmit={handleChatSubmit}
-              style={{
-                marginTop: 10,
-                display: "flex",
-                alignItems: "flex-end",
-                gap: 8,
-              }}
-            >
-              <textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                placeholder={inputPlaceholder}
-                rows={1}
+            {onboardingStep !== "ready" ? (
+              <form
+                onSubmit={handleVisitorRegistration}
                 style={{
-                  flex: 1,
-                  resize: "none",
-                  minHeight: 44,
-                  maxHeight: 96,
-                  borderRadius: 14,
-                  border: "1.5px solid #DDD6FE",
-                  padding: "12px 14px",
-                  fontSize: 13,
-                  color: "#1F2937",
-                  outline: "none",
-                  background: "white",
-                  boxSizing: "border-box",
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!canSend}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 14,
-                  border: "none",
-                  cursor: !canSend ? "not-allowed" : "pointer",
-                  background: !canSend ? "#DDD6FE" : "#7C3AED",
-                  color: "white",
+                  marginTop: 10,
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: !canSend ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
-                  transition: "all 0.2s ease",
-                  flexShrink: 0,
+                  flexDirection: "column",
+                  gap: 8,
                 }}
               >
-                {sending ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={17} />}
-              </button>
-            </form>
+                <input
+                  type="text"
+                  value={visitorName}
+                  onChange={(event) => setVisitorName(event.target.value)}
+                  placeholder="Nombre y apellido"
+                  style={{
+                    width: "100%",
+                    minHeight: 44,
+                    borderRadius: 14,
+                    border: "1.5px solid #DDD6FE",
+                    padding: "12px 14px",
+                    fontSize: 13,
+                    color: "#1F2937",
+                    outline: "none",
+                    background: "white",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={visitorWhatsapp}
+                  onChange={(event) => setVisitorWhatsapp(event.target.value)}
+                  placeholder="WhatsApp"
+                  style={{
+                    width: "100%",
+                    minHeight: 44,
+                    borderRadius: 14,
+                    border: "1.5px solid #DDD6FE",
+                    padding: "12px 14px",
+                    fontSize: 13,
+                    color: "#1F2937",
+                    outline: "none",
+                    background: "white",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!canRegister}
+                  style={{
+                    minHeight: 44,
+                    borderRadius: 14,
+                    border: "none",
+                    cursor: !canRegister ? "not-allowed" : "pointer",
+                    background: !canRegister ? "#DDD6FE" : "#7C3AED",
+                    color: "white",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    boxShadow: !canRegister ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {registering ? "Abriendo chat..." : "Iniciar chat"}
+                </button>
+              </form>
+            ) : (
+              <form
+                onSubmit={handleChatSubmit}
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "flex-end",
+                  gap: 8,
+                }}
+              >
+                <textarea
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                  placeholder="Escribí tu mensaje..."
+                  rows={1}
+                  style={{
+                    flex: 1,
+                    resize: "none",
+                    minHeight: 44,
+                    maxHeight: 96,
+                    borderRadius: 14,
+                    border: "1.5px solid #DDD6FE",
+                    padding: "12px 14px",
+                    fontSize: 13,
+                    color: "#1F2937",
+                    outline: "none",
+                    background: "white",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!canSend}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    border: "none",
+                    cursor: !canSend ? "not-allowed" : "pointer",
+                    background: !canSend ? "#DDD6FE" : "#7C3AED",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: !canSend ? "none" : "0 8px 20px rgba(124,58,237,0.28)",
+                    transition: "all 0.2s ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  {sending ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={17} />}
+                </button>
+              </form>
+            )}
           </div>
 
           {/* Footer */}
