@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigation, Send } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 
@@ -24,6 +24,17 @@ type ClienteResponse = {
   id?: number | string;
   cliente?: { id?: number | string };
 };
+
+type ChatMessage = {
+  id: number | string;
+  cliente_id: number | string;
+  autor_tipo: "cliente" | "admin";
+  autor_nombre: string;
+  mensaje: string;
+  creado_en: string;
+};
+
+type ChatStep = "name" | "whatsapp" | "ready";
 
 function MapVisual() {
   return (
@@ -53,18 +64,71 @@ export default function UbicacionesSection() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [chatFeedback, setChatFeedback] = useState("");
+  const [miniMessages, setMiniMessages] = useState<ChatMessage[]>([]);
+  const [chatStep, setChatStep] = useState<ChatStep>("name");
+  const [visitorName, setVisitorName] = useState("");
+
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
   const getStoredProfile = () => {
-    const name = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "Visitante Web";
+    const name = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
     const whatsapp = window.localStorage.getItem(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
     return { name, whatsapp };
   };
 
-  const ensureChatClienteId = async () => {
-    const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
-    if (storedClientId) return storedClientId;
+  const loadHistory = async (clienteId: string) => {
+    const response = await fetch(apiUrl(`/api/chat/${clienteId}`));
+    if (!response.ok) throw new Error("No se pudo cargar la conversación.");
+    const data = (await response.json()) as ChatMessage[];
+    const normalizedMessages = Array.isArray(data) ? data : [];
+    setMiniMessages(normalizedMessages);
+    return normalizedMessages;
+  };
 
+  const findExistingClienteId = async (whatsapp: string) => {
+    const target = normalizePhone(whatsapp);
+    if (!target) return "";
+
+    const response = await fetch(apiUrl("/api/clientes"));
+    if (!response.ok) return "";
+
+    const clientes = (await response.json()) as Array<{
+      id?: number | string;
+      whatsapp?: string;
+      telefono?: string;
+    }>;
+
+    const match = clientes.find((cliente) => {
+      const storedWhatsapp = normalizePhone(cliente.whatsapp || "");
+      const storedTelefono = normalizePhone(cliente.telefono || "");
+      return storedWhatsapp === target || storedTelefono === target;
+    });
+
+    return match?.id ? String(match.id) : "";
+  };
+
+  const ensureChatClienteId = async () => {
     const profile = getStoredProfile();
+    const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+
+    if (storedClientId && profile.name && profile.whatsapp && profile.name !== "Visitante Web") {
+      return storedClientId;
+    }
+
+    if (storedClientId && (!profile.name || !profile.whatsapp || profile.name === "Visitante Web")) {
+      window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+    }
+
+    if (!profile.name || !profile.whatsapp) {
+      throw new Error("Necesitamos tu nombre y WhatsApp para responderte.");
+    }
+
+    const existingId = await findExistingClienteId(profile.whatsapp);
+    if (existingId) {
+      window.localStorage.setItem(CLIENT_STORAGE_KEY, existingId);
+      return existingId;
+    }
+
     const response = await fetch(apiUrl("/api/clientes"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -84,8 +148,6 @@ export default function UbicacionesSection() {
 
     const normalizedId = String(clienteId);
     window.localStorage.setItem(CLIENT_STORAGE_KEY, normalizedId);
-    if (profile.name) window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, profile.name);
-    if (profile.whatsapp) window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
     return normalizedId;
   };
 
@@ -97,6 +159,28 @@ export default function UbicacionesSection() {
     setChatFeedback("");
 
     try {
+      if (chatStep === "name") {
+        if (text.length < 2) throw new Error("Escribí tu nombre para identificar la conversación.");
+        window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, text);
+        setVisitorName(text);
+        setChatStep("whatsapp");
+        setMessage("");
+        setChatFeedback("Ahora escribí tu WhatsApp.");
+        return;
+      }
+
+      if (chatStep === "whatsapp") {
+        if (normalizePhone(text).length < 6) throw new Error("Escribí un WhatsApp válido.");
+        window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, text);
+        window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+        const clienteId = await ensureChatClienteId();
+        await loadHistory(clienteId);
+        setChatStep("ready");
+        setMessage("");
+        setChatFeedback("Listo, escribí tu mensaje.");
+        return;
+      }
+
       const clienteId = await ensureChatClienteId();
       const profile = getStoredProfile();
       const response = await fetch(apiUrl(`/api/chat/${clienteId}`), {
@@ -105,20 +189,48 @@ export default function UbicacionesSection() {
         body: JSON.stringify({
           mensaje: text,
           autor_tipo: "cliente",
-          autor_nombre: profile.name || "Visitante Web",
+          autor_nombre: profile.name || visitorName || "Visitante Web",
         }),
       });
 
       if (!response.ok) throw new Error("No se pudo enviar el mensaje.");
 
+      const savedMessage = (await response.json()) as ChatMessage;
+      setMiniMessages((current) => [...current, savedMessage]);
+      await loadHistory(clienteId);
       setMessage("");
-      setChatFeedback("Mensaje enviado. Te respondemos por acá.");
+      setChatFeedback("Mensaje enviado.");
     } catch (error) {
       setChatFeedback(error instanceof Error ? error.message : "No se pudo enviar el mensaje.");
     } finally {
       setSending(false);
     }
   };
+
+  useEffect(() => {
+    const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+    const profile = getStoredProfile();
+    if (profile.name) setVisitorName(profile.name);
+
+    if (storedClientId && profile.name && profile.whatsapp && profile.name !== "Visitante Web") {
+      setChatStep("ready");
+      void loadHistory(storedClientId).catch(() => undefined);
+      return;
+    }
+
+    if (storedClientId && (!profile.name || !profile.whatsapp || profile.name === "Visitante Web")) {
+      window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+    }
+
+    setChatStep(profile.name ? "whatsapp" : "name");
+  }, []);
+
+  const chatPlaceholder =
+    chatStep === "name"
+      ? "Tu nombre..."
+      : chatStep === "whatsapp"
+        ? "Tu WhatsApp..."
+        : "Escribe tu mensaje...";
 
   return (
     <section id="ubicaciones" className="py-12 bg-white">
@@ -273,6 +385,39 @@ export default function UbicacionesSection() {
               <p style={{ fontSize: 9.5, color: "#9CA3AF", textAlign: "left", marginTop: 4, paddingLeft: 4 }}>
                 09:20
               </p>
+              {miniMessages.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 7,
+                    maxHeight: 110,
+                    overflowY: "auto",
+                    marginTop: 8,
+                  }}
+                >
+                  {miniMessages.map((chatMessage) => {
+                    const fromClient = chatMessage.autor_tipo === "cliente";
+                    return (
+                      <div
+                        key={chatMessage.id}
+                        style={{
+                          alignSelf: fromClient ? "flex-end" : "flex-start",
+                          background: fromClient ? "#7C3AED" : "#F3F4F6",
+                          color: fromClient ? "white" : "#374151",
+                          borderRadius: fromClient ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                          padding: "8px 10px",
+                          fontSize: 11.5,
+                          lineHeight: 1.35,
+                          maxWidth: "92%",
+                        }}
+                      >
+                        {chatMessage.mensaje}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Input */}
@@ -292,7 +437,7 @@ export default function UbicacionesSection() {
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Escribe tu mensaje..."
+                  placeholder={chatPlaceholder}
                   style={{
                     flex: 1,
                     fontSize: 12,
