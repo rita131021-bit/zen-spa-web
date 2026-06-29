@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { Loader2, Send, X } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { apiUrl } from "@/lib/api";
@@ -18,10 +19,6 @@ const getSocketUrl = () => {
     import.meta.env.VITE_API_URL ??
     SOCKET_FALLBACK_URL
   ).replace(/\/$/, "");
-
-  if (typeof window !== "undefined" && window.location.hostname.endsWith("vercel.app")) {
-    return window.location.origin;
-  }
 
   return configuredUrl;
 };
@@ -323,7 +320,7 @@ export default function FloatingChat() {
   };
 
   const completeVisitorProfile = async (whatsapp: string) => {
-    const name = visitorName.trim();
+    const name = visitorNameRef.current || visitorName.trim() || window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
     if (!name) {
       setOnboardingStep("name");
       setErrorMessage("Primero necesitamos tu nombre.");
@@ -644,12 +641,15 @@ export default function FloatingChat() {
               )}
             </div>
 
-            <div style={{
-              marginTop: 10,
-              display: "flex",
-              alignItems: "flex-end",
-              gap: 8,
-            }}>
+            <form
+              onSubmit={handleChatSubmit}
+              style={{
+                marginTop: 10,
+                display: "flex",
+                alignItems: "flex-end",
+                gap: 8,
+              }}
+            >
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -677,7 +677,7 @@ export default function FloatingChat() {
                 }}
               />
               <button
-                onClick={() => void handleSend()}
+                type="submit"
                 disabled={!canSend}
                 style={{
                   width: 44,
@@ -697,7 +697,7 @@ export default function FloatingChat() {
               >
                 {sending ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={17} />}
               </button>
-            </div>
+            </form>
 
             <a
               href={WA_URL}
