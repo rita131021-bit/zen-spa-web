@@ -398,26 +398,32 @@ export default function FloatingChat() {
   };
 
   const submitVisitorRegistration = async () => {
-    const name = visitorName.trim();
-    const whatsapp = visitorWhatsapp.trim();
+    try {
+      const name = visitorName.trim();
+      const whatsapp = visitorWhatsapp.trim();
 
-    if (name.length < 2) {
-      setErrorMessage("Escribí tu nombre para que podamos identificarte.");
-      return;
+      if (name.length < 2) {
+        setErrorMessage("Escribí tu nombre para que podamos identificarte.");
+        return;
+      }
+
+      if (normalizePhone(whatsapp).length < 6) {
+        setErrorMessage("Escribí un WhatsApp válido para poder responderte.");
+        return;
+      }
+
+      visitorNameRef.current = name;
+      setVisitorName(name);
+      setStoredValue(CLIENT_NAME_STORAGE_KEY, name);
+      setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, whatsapp);
+      removeStoredValue(CLIENT_STORAGE_KEY);
+      clienteIdRef.current = "";
+      await completeVisitorProfile(whatsapp);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar el chat.");
+      setSending(false);
+      setRegistering(false);
     }
-
-    if (normalizePhone(whatsapp).length < 6) {
-      setErrorMessage("Escribí un WhatsApp válido para poder responderte.");
-      return;
-    }
-
-    visitorNameRef.current = name;
-    setVisitorName(name);
-    setStoredValue(CLIENT_NAME_STORAGE_KEY, name);
-    setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, whatsapp);
-    removeStoredValue(CLIENT_STORAGE_KEY);
-    clienteIdRef.current = "";
-    await completeVisitorProfile(whatsapp);
   };
 
   const handleVisitorRegistration = (event: FormEvent<HTMLFormElement>) => {
@@ -773,6 +779,8 @@ export default function FloatingChat() {
                 />
                 <button
                   type="button"
+                  onPointerDown={(event) => { event.preventDefault(); void submitVisitorRegistration(); }}
+                  onMouseDown={(event) => { event.preventDefault(); void submitVisitorRegistration(); }}
                   onClick={() => { void submitVisitorRegistration(); }}
                   disabled={!canRegister}
                   style={{
