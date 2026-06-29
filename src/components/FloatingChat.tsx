@@ -848,7 +848,10 @@ export default function FloatingChat() {
                   }}
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onPointerDown={(event) => { event.preventDefault(); void handleSend(); }}
+                  onMouseDown={(event) => { event.preventDefault(); void handleSend(); }}
+                  onClick={() => { void handleSend(); }}
                   disabled={!canSend}
                   style={{
                     width: 44,
