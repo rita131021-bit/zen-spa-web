@@ -518,7 +518,13 @@ export default function ReservasSection() {
     setAvailLoading(true);
     try {
       const res = await fetch(apiUrl(`/api/availability?month=${monthKey(year, month)}`));
-      if (res.ok) setAvailability(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAvailability({
+          blockedDates: Array.isArray(data?.blockedDates) ? data.blockedDates : [],
+          bookedSlots: data?.bookedSlots && typeof data.bookedSlots === "object" ? data.bookedSlots : {},
+        });
+      }
     } catch {
       // silently fail — don't block booking
     } finally {
@@ -537,12 +543,14 @@ export default function ReservasSection() {
   };
 
   // Derived availability sets
-  const blockedDatesSet = new Set(availability.blockedDates);
-  const bookedDatesSet  = new Set(Object.keys(availability.bookedSlots));
+  const safeBlockedDates = Array.isArray(availability.blockedDates) ? availability.blockedDates : [];
+  const safeBookedSlots = availability.bookedSlots && typeof availability.bookedSlots === "object" ? availability.bookedSlots : {};
+  const blockedDatesSet = new Set(safeBlockedDates);
+  const bookedDatesSet  = new Set(Object.keys(safeBookedSlots));
 
   // Hours already booked for the selected date
-  const spaBookedHours   = spaDate   ? (availability.bookedSlots[toYMD(spaDate)]   ?? []) : [];
-  const startBookedHours = startDate ? (availability.bookedSlots[toYMD(startDate)] ?? []) : [];
+  const spaBookedHours   = spaDate   ? (safeBookedSlots[toYMD(spaDate)]   ?? []) : [];
+  const startBookedHours = startDate ? (safeBookedSlots[toYMD(startDate)] ?? []) : [];
 
   // If selected hour is now unavailable, reset to first free hour
   useEffect(() => {
