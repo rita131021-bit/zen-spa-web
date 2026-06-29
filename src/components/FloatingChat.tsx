@@ -117,7 +117,7 @@ export default function FloatingChat() {
         ? "Tu WhatsApp..."
         : "Escribí tu mensaje...";
 
-  const canSend = Boolean(draft.trim()) && !sending && (onboardingStep !== "ready" || chatReady);
+  const canSend = Boolean(draft.trim()) && !sending && !registering;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -266,6 +266,26 @@ export default function FloatingChat() {
     return socket;
   };
 
+  const sendMessageByApi = async (clienteId: string, messageText: string) => {
+    const response = await fetch(apiUrl(`/api/chat/${clienteId}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mensaje: messageText,
+        autor_tipo: "cliente",
+        autor_nombre: visitorNameRef.current || "Visitante Web",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("No se pudo enviar el mensaje.");
+    }
+
+    const data = (await response.json()) as ChatMessage;
+    appendMessage(data);
+    return data;
+  };
+
   const initializeChat = async () => {
     if (initializedRef.current) return;
     initializedRef.current = true;
@@ -340,37 +360,57 @@ export default function FloatingChat() {
 
     const socket = socketRef.current;
     const clienteId = clienteIdRef.current;
-    if (!socket || !clienteId) return;
-
-    if (!socket.connected) {
-      socket.connect();
-      setErrorMessage("Reconectando chat...");
-      return;
-    }
+    if (!clienteId) return;
 
     setSending(true);
     setErrorMessage("");
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        socket.emit(
-          "mensaje:enviar",
-          {
-            cliente_id: clienteId,
-            mensaje: messageText,
-            autor_tipo: "cliente",
-            autor_nombre: visitorNameRef.current || "Visitante Web",
-          },
-          (response: { ok: boolean; data?: ChatMessage; error?: string }) => {
-            if (!response?.ok || !response.data) {
-              reject(new Error(response?.error || "No se pudo enviar el mensaje."));
-              return;
-            }
-            appendMessage(response.data);
-            resolve();
-          },
-        );
-      });
+      let sent = false;
+
+      if (socket) {
+        if (!socket.connected) {
+          socket.connect();
+        }
+
+        if (socket.connected) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const timeout = window.setTimeout(() => {
+                reject(new Error("Socket sin confirmación."));
+              }, 5000);
+
+              socket.emit(
+                "mensaje:enviar",
+                {
+                  cliente_id: clienteId,
+                  mensaje: messageText,
+                  autor_tipo: "cliente",
+                  autor_nombre: visitorNameRef.current || "Visitante Web",
+                },
+                (response: { ok: boolean; data?: ChatMessage; error?: string }) => {
+                  window.clearTimeout(timeout);
+                  if (!response?.ok || !response.data) {
+                    reject(new Error(response?.error || "No se pudo enviar el mensaje."));
+                    return;
+                  }
+                  appendMessage(response.data);
+                  sent = true;
+                  resolve();
+                },
+              );
+            });
+          } catch {
+            sent = false;
+          }
+        }
+      }
+
+      if (!sent) {
+        await sendMessageByApi(clienteId, messageText);
+      }
+
+      await loadHistory(clienteId);
       setDraft("");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "No se pudo enviar el mensaje.");
