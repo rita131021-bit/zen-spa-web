@@ -99,6 +99,7 @@ export default function FloatingChat() {
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
+  const registrationStartedRef = useRef(false);
   const visitorIdRef = useRef("");
   const clienteIdRef = useRef<string>("");
   const visitorNameRef = useRef("");
@@ -412,6 +413,8 @@ export default function FloatingChat() {
         return;
       }
 
+      if (registrationStartedRef.current || sending || registering) return;
+      registrationStartedRef.current = true;
       visitorNameRef.current = name;
       setVisitorName(name);
       setStoredValue(CLIENT_NAME_STORAGE_KEY, name);
@@ -420,6 +423,7 @@ export default function FloatingChat() {
       clienteIdRef.current = "";
       await completeVisitorProfile(whatsapp);
     } catch (error) {
+      registrationStartedRef.current = false;
       setErrorMessage(error instanceof Error ? error.message : "No se pudo iniciar el chat.");
       setSending(false);
       setRegistering(false);
@@ -519,6 +523,14 @@ export default function FloatingChat() {
     event.preventDefault();
     void handleSend();
   };
+
+  useEffect(() => {
+    if (onboardingStep === "ready" || !canRegister || registrationStartedRef.current) return;
+    const timer = window.setTimeout(() => {
+      void submitVisitorRegistration();
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [visitorName, visitorWhatsapp, canRegister, onboardingStep]);
 
   /* Appear after 2s, stop pulsing after 6s */
   useEffect(() => {
@@ -796,7 +808,7 @@ export default function FloatingChat() {
                     transition: "all 0.2s ease",
                   }}
                 >
-                  {registering ? "Abriendo chat..." : "Iniciar chat"}
+                  {registering ? "Abriendo chat..." : canRegister ? "Abriendo automáticamente..." : "Completá tus datos"}
                 </button>
               </form>
             ) : (
