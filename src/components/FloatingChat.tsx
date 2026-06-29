@@ -431,6 +431,11 @@ export default function FloatingChat() {
     }
   };
 
+  const handleChatSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void handleSend();
+  };
+
   /* Appear after 2s, stop pulsing after 6s */
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 2000);
