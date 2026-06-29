@@ -373,8 +373,7 @@ export default function FloatingChat() {
     }
   };
 
-  const handleVisitorRegistration = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitVisitorRegistration = async () => {
     const name = visitorName.trim();
     const whatsapp = visitorWhatsapp.trim();
 
@@ -395,6 +394,11 @@ export default function FloatingChat() {
     window.localStorage.removeItem(CLIENT_STORAGE_KEY);
     clienteIdRef.current = "";
     await completeVisitorProfile(whatsapp);
+  };
+
+  const handleVisitorRegistration = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submitVisitorRegistration();
   };
 
   const handleSend = async () => {
@@ -744,7 +748,8 @@ export default function FloatingChat() {
                   }}
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => { void submitVisitorRegistration(); }}
                   disabled={!canRegister}
                   style={{
                     minHeight: 44,
