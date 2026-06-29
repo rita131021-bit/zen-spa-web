@@ -8,6 +8,7 @@ const VISITOR_STORAGE_KEY = "zen-chat-visitor-id";
 const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
 const CLIENT_NAME_STORAGE_KEY = "zen-chat-cliente-nombre";
 const CLIENT_WHATSAPP_STORAGE_KEY = "zen-chat-cliente-whatsapp";
+const CLIENT_TOPIC_STORAGE_KEY = "zen-chat-consulta";
 const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production-df4d.up.railway.app";
 
 const getStoredValue = (key: string) => {
@@ -65,6 +66,7 @@ type ChatStep = "name" | "whatsapp" | "ready";
 type VisitorProfile = {
   name: string;
   whatsapp: string;
+  topic: string;
 };
 
 /* ─── Paw icon ─── */
@@ -95,6 +97,7 @@ export default function FloatingChat() {
   const [onboardingStep, setOnboardingStep] = useState<ChatStep>("name");
   const [visitorName, setVisitorName] = useState("");
   const [visitorWhatsapp, setVisitorWhatsapp] = useState("");
+  const [visitorTopic, setVisitorTopic] = useState("");
   const [isTyping] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +106,7 @@ export default function FloatingChat() {
   const visitorIdRef = useRef("");
   const clienteIdRef = useRef<string>("");
   const visitorNameRef = useRef("");
+  const visitorTopicRef = useRef("");
 
   const statusLabel = useMemo(() => {
     if (onboardingStep !== "ready") return "Registrá tus datos";
@@ -114,7 +118,7 @@ export default function FloatingChat() {
 
   const introMessage = useMemo(() => {
     if (onboardingStep !== "ready") {
-      return "¡Hola! 🌸 Dejanos tu nombre y WhatsApp para abrir tu conversación.";
+      return "¡Hola! 🌸 Dejanos tus datos y el motivo de consulta para abrir tu conversación.";
     }
     return "¡Hola" + (visitorName ? ", " + visitorName : "") + "! 🌸 ¿En qué podemos ayudarte hoy?";
   }, [onboardingStep, visitorName]);
@@ -129,7 +133,11 @@ export default function FloatingChat() {
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
   const canRegister =
-    visitorName.trim().length >= 2 && normalizePhone(visitorWhatsapp).length >= 6 && !sending && !registering;
+    visitorName.trim().length >= 2 &&
+    normalizePhone(visitorWhatsapp).length >= 6 &&
+    visitorTopic.trim().length >= 2 &&
+    !sending &&
+    !registering;
 
   const findExistingClienteId = async (whatsapp: string) => {
     const target = normalizePhone(whatsapp);
@@ -181,16 +189,19 @@ export default function FloatingChat() {
     const storedNameRaw = getStoredValue(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
     const storedName = storedNameRaw && storedNameRaw !== "Visitante Web" ? storedNameRaw : "";
     const storedWhatsapp = getStoredValue(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
+    const storedTopic = getStoredValue(CLIENT_TOPIC_STORAGE_KEY)?.trim() || "";
     setVisitorName(storedName);
     setVisitorWhatsapp(storedWhatsapp);
+    setVisitorTopic(storedTopic);
     visitorNameRef.current = storedName;
-    return { storedName, storedWhatsapp };
+    visitorTopicRef.current = storedTopic;
+    return { storedName, storedWhatsapp, storedTopic };
   };
 
   const ensureClienteId = async (profile: VisitorProfile) => {
     if (clienteIdRef.current) return clienteIdRef.current;
     const storedClientId = getStoredValue(CLIENT_STORAGE_KEY);
-    if (storedClientId && profile.name && profile.name !== "Visitante Web" && profile.whatsapp) {
+    if (storedClientId && profile.name && profile.name !== "Visitante Web" && profile.whatsapp && profile.topic) {
       clienteIdRef.current = storedClientId;
       setOnboardingStep("ready");
       return storedClientId;
@@ -209,6 +220,7 @@ export default function FloatingChat() {
       setStoredValue(CLIENT_STORAGE_KEY, existingClienteId);
       setStoredValue(CLIENT_NAME_STORAGE_KEY, profile.name);
       setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
+    setStoredValue(CLIENT_TOPIC_STORAGE_KEY, profile.topic);
       clienteIdRef.current = existingClienteId;
       visitorNameRef.current = profile.name;
       setVisitorName(profile.name);
@@ -224,7 +236,7 @@ export default function FloatingChat() {
         nombre: profile.name,
         whatsapp: profile.whatsapp,
         telefono: profile.whatsapp,
-        notas: `Registrado desde chat web (${visitorId})`,
+        notas: `Registrado desde chat web (${visitorId}) - Consulta: ${profile.topic}`,
       }),
     });
 
@@ -341,7 +353,7 @@ export default function FloatingChat() {
     try {
       const storedClientId = getStoredValue(CLIENT_STORAGE_KEY);
       const storedProfile = loadStoredProfile();
-      if (!storedClientId || !storedProfile.storedName || !storedProfile.storedWhatsapp) {
+      if (!storedClientId || !storedProfile.storedName || !storedProfile.storedWhatsapp || !storedProfile.storedTopic) {
         removeStoredValue(CLIENT_STORAGE_KEY);
         clienteIdRef.current = "";
         setOnboardingStep("name");
@@ -355,9 +367,10 @@ export default function FloatingChat() {
       if ((history ?? []).length === 0) {
         const name = storedProfile.storedName || visitorNameRef.current || "Cliente Web";
         const whatsapp = storedProfile.storedWhatsapp;
+        const topic = storedProfile.storedTopic;
         await sendMessageByApi(
           storedClientId,
-          `Hola, soy ${name}${whatsapp ? `. Mi WhatsApp es ${whatsapp}` : ""}.`,
+          `Hola, soy ${name}${whatsapp ? `. Mi WhatsApp es ${whatsapp}` : ""}. Consulta: ${topic}.`,
         );
         await loadHistory(storedClientId);
       }
@@ -372,9 +385,15 @@ export default function FloatingChat() {
 
   const completeVisitorProfile = async (whatsapp: string) => {
     const name = visitorNameRef.current || visitorName.trim() || getStoredValue(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
+    const topic = visitorTopicRef.current || visitorTopic.trim() || getStoredValue(CLIENT_TOPIC_STORAGE_KEY)?.trim() || "";
     if (!name) {
       setOnboardingStep("name");
       setErrorMessage("Primero necesitamos tu nombre.");
+      return;
+    }
+
+    if (!topic) {
+      setErrorMessage("Elegí el motivo de tu consulta.");
       return;
     }
 
@@ -382,10 +401,10 @@ export default function FloatingChat() {
     setRegistering(true);
     setErrorMessage("");
     try {
-      const clienteId = await ensureClienteId({ name, whatsapp });
+      const clienteId = await ensureClienteId({ name, whatsapp, topic });
       const history = await loadHistory(clienteId);
       if ((history ?? []).length === 0) {
-        await sendMessageByApi(clienteId, `Hola, soy ${name}. Mi WhatsApp es ${whatsapp}.`);
+        await sendMessageByApi(clienteId, `Hola, soy ${name}. Mi WhatsApp es ${whatsapp}. Consulta: ${topic}.`);
         await loadHistory(clienteId);
       }
       connectSocket(clienteId);
@@ -402,6 +421,7 @@ export default function FloatingChat() {
     try {
       const name = visitorName.trim();
       const whatsapp = visitorWhatsapp.trim();
+      const topic = visitorTopic.trim();
 
       if (name.length < 2) {
         setErrorMessage("Escribí tu nombre para que podamos identificarte.");
@@ -413,12 +433,20 @@ export default function FloatingChat() {
         return;
       }
 
+      if (topic.length < 2) {
+        setErrorMessage("Elegí el motivo de tu consulta.");
+        return;
+      }
+
       if (registrationStartedRef.current || sending || registering) return;
       registrationStartedRef.current = true;
       visitorNameRef.current = name;
+      visitorTopicRef.current = topic;
       setVisitorName(name);
+      setVisitorTopic(topic);
       setStoredValue(CLIENT_NAME_STORAGE_KEY, name);
       setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, whatsapp);
+      setStoredValue(CLIENT_TOPIC_STORAGE_KEY, topic);
       removeStoredValue(CLIENT_STORAGE_KEY);
       clienteIdRef.current = "";
       await completeVisitorProfile(whatsapp);
@@ -789,6 +817,29 @@ export default function FloatingChat() {
                     boxSizing: "border-box",
                   }}
                 />
+                <select
+                  value={visitorTopic}
+                  onChange={(event) => setVisitorTopic(event.target.value)}
+                  style={{
+                    width: "100%",
+                    minHeight: 44,
+                    borderRadius: 14,
+                    border: "1.5px solid #DDD6FE",
+                    padding: "12px 14px",
+                    fontSize: 13,
+                    color: visitorTopic ? "#1F2937" : "#9CA3AF",
+                    outline: "none",
+                    background: "white",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="">Motivo de consulta</option>
+                  <option value="Turnos y reservas">Turnos y reservas</option>
+                  <option value="Servicios y precios">Servicios y precios</option>
+                  <option value="Guarderia">Guarderia</option>
+                  <option value="Terapias">Terapias</option>
+                  <option value="Otra consulta">Otra consulta</option>
+                </select>
                 <button
                   type="button"
                   onPointerDown={(event) => { event.preventDefault(); void submitVisitorRegistration(); }}
