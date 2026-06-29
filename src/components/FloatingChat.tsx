@@ -120,6 +120,30 @@ export default function FloatingChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const normalizePhone = (value: string) => value.replace(/D/g, "");
+
+  const findExistingClienteId = async (whatsapp: string) => {
+    const target = normalizePhone(whatsapp);
+    if (!target) return "";
+
+    const response = await fetch(apiUrl("/api/clientes"));
+    if (!response.ok) return "";
+
+    const clientes = (await response.json()) as Array<{
+      id?: number | string;
+      whatsapp?: string;
+      telefono?: string;
+    }>;
+
+    const match = clientes.find((cliente) => {
+      const storedWhatsapp = normalizePhone(cliente.whatsapp || "");
+      const storedTelefono = normalizePhone(cliente.telefono || "");
+      return storedWhatsapp === target || storedTelefono === target;
+    });
+
+    return match?.id ? String(match.id) : "";
+  };
+
   const getOrCreateVisitorId = () => {
     if (visitorIdRef.current) return visitorIdRef.current;
     const stored = window.localStorage.getItem(VISITOR_STORAGE_KEY);
@@ -166,6 +190,19 @@ export default function FloatingChat() {
 
     setRegistering(true);
     setErrorMessage("");
+
+    const existingClienteId = await findExistingClienteId(profile.whatsapp);
+    if (existingClienteId) {
+      window.localStorage.setItem(CLIENT_STORAGE_KEY, existingClienteId);
+      window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, profile.name);
+      window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
+      clienteIdRef.current = existingClienteId;
+      visitorNameRef.current = profile.name;
+      setVisitorName(profile.name);
+      setOnboardingStep("ready");
+      return existingClienteId;
+    }
+
     const visitorId = getOrCreateVisitorId();
     const response = await fetch(apiUrl("/api/clientes"), {
       method: "POST",
