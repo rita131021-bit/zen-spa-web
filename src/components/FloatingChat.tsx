@@ -10,6 +10,30 @@ const CLIENT_NAME_STORAGE_KEY = "zen-chat-cliente-nombre";
 const CLIENT_WHATSAPP_STORAGE_KEY = "zen-chat-cliente-whatsapp";
 const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production-df4d.up.railway.app";
 
+const getStoredValue = (key: string) => {
+  try {
+    return typeof window !== "undefined" ? window.localStorage?.getItem(key) : null;
+  } catch {
+    return null;
+  }
+};
+
+const setStoredValue = (key: string, value: string) => {
+  try {
+    if (typeof window !== "undefined") window.localStorage?.setItem(key, value);
+  } catch {
+    // Storage can be blocked in private or embedded browsers; chat must still work.
+  }
+};
+
+const removeStoredValue = (key: string) => {
+  try {
+    if (typeof window !== "undefined") window.localStorage?.removeItem(key);
+  } catch {
+    // Storage can be blocked in private or embedded browsers; chat must still work.
+  }
+};
+
 const getSocketUrl = () => {
   const configuredUrl = (
     import.meta.env.VITE_SOCKET_URL ??
@@ -130,7 +154,7 @@ export default function FloatingChat() {
 
   const getOrCreateVisitorId = () => {
     if (visitorIdRef.current) return visitorIdRef.current;
-    const stored = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+    const stored = getStoredValue(VISITOR_STORAGE_KEY);
     if (stored) {
       visitorIdRef.current = stored;
       return stored;
@@ -139,7 +163,7 @@ export default function FloatingChat() {
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `visitor-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    window.localStorage.setItem(VISITOR_STORAGE_KEY, generated);
+    setStoredValue(VISITOR_STORAGE_KEY, generated);
     visitorIdRef.current = generated;
     return generated;
   };
@@ -153,9 +177,9 @@ export default function FloatingChat() {
   };
 
   const loadStoredProfile = () => {
-    const storedNameRaw = window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
+    const storedNameRaw = getStoredValue(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
     const storedName = storedNameRaw && storedNameRaw !== "Visitante Web" ? storedNameRaw : "";
-    const storedWhatsapp = window.localStorage.getItem(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
+    const storedWhatsapp = getStoredValue(CLIENT_WHATSAPP_STORAGE_KEY)?.trim() || "";
     setVisitorName(storedName);
     setVisitorWhatsapp(storedWhatsapp);
     visitorNameRef.current = storedName;
@@ -164,7 +188,7 @@ export default function FloatingChat() {
 
   const ensureClienteId = async (profile: VisitorProfile) => {
     if (clienteIdRef.current) return clienteIdRef.current;
-    const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+    const storedClientId = getStoredValue(CLIENT_STORAGE_KEY);
     if (storedClientId && profile.name && profile.name !== "Visitante Web" && profile.whatsapp) {
       clienteIdRef.current = storedClientId;
       setOnboardingStep("ready");
@@ -172,7 +196,7 @@ export default function FloatingChat() {
     }
 
     if (storedClientId) {
-      window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+      removeStoredValue(CLIENT_STORAGE_KEY);
       clienteIdRef.current = "";
     }
 
@@ -181,9 +205,9 @@ export default function FloatingChat() {
 
     const existingClienteId = await findExistingClienteId(profile.whatsapp);
     if (existingClienteId) {
-      window.localStorage.setItem(CLIENT_STORAGE_KEY, existingClienteId);
-      window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, profile.name);
-      window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
+      setStoredValue(CLIENT_STORAGE_KEY, existingClienteId);
+      setStoredValue(CLIENT_NAME_STORAGE_KEY, profile.name);
+      setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
       clienteIdRef.current = existingClienteId;
       visitorNameRef.current = profile.name;
       setVisitorName(profile.name);
@@ -214,9 +238,9 @@ export default function FloatingChat() {
     }
 
     const normalizedId = String(clienteId);
-    window.localStorage.setItem(CLIENT_STORAGE_KEY, normalizedId);
-    window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, profile.name);
-    window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
+    setStoredValue(CLIENT_STORAGE_KEY, normalizedId);
+    setStoredValue(CLIENT_NAME_STORAGE_KEY, profile.name);
+    setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, profile.whatsapp);
     clienteIdRef.current = normalizedId;
     visitorNameRef.current = profile.name;
     setVisitorName(profile.name);
@@ -314,10 +338,10 @@ export default function FloatingChat() {
     if (initializedRef.current) return;
     initializedRef.current = true;
     try {
-      const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+      const storedClientId = getStoredValue(CLIENT_STORAGE_KEY);
       const storedProfile = loadStoredProfile();
       if (!storedClientId || !storedProfile.storedName || !storedProfile.storedWhatsapp) {
-        window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+        removeStoredValue(CLIENT_STORAGE_KEY);
         clienteIdRef.current = "";
         setOnboardingStep("name");
         setChatReady(false);
@@ -346,7 +370,7 @@ export default function FloatingChat() {
   };
 
   const completeVisitorProfile = async (whatsapp: string) => {
-    const name = visitorNameRef.current || visitorName.trim() || window.localStorage.getItem(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
+    const name = visitorNameRef.current || visitorName.trim() || getStoredValue(CLIENT_NAME_STORAGE_KEY)?.trim() || "";
     if (!name) {
       setOnboardingStep("name");
       setErrorMessage("Primero necesitamos tu nombre.");
@@ -389,9 +413,9 @@ export default function FloatingChat() {
 
     visitorNameRef.current = name;
     setVisitorName(name);
-    window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, name);
-    window.localStorage.setItem(CLIENT_WHATSAPP_STORAGE_KEY, whatsapp);
-    window.localStorage.removeItem(CLIENT_STORAGE_KEY);
+    setStoredValue(CLIENT_NAME_STORAGE_KEY, name);
+    setStoredValue(CLIENT_WHATSAPP_STORAGE_KEY, whatsapp);
+    removeStoredValue(CLIENT_STORAGE_KEY);
     clienteIdRef.current = "";
     await completeVisitorProfile(whatsapp);
   };
@@ -412,7 +436,7 @@ export default function FloatingChat() {
       }
       setVisitorName(messageText);
       visitorNameRef.current = messageText;
-      window.localStorage.setItem(CLIENT_NAME_STORAGE_KEY, messageText);
+      setStoredValue(CLIENT_NAME_STORAGE_KEY, messageText);
       setOnboardingStep("whatsapp");
       setErrorMessage("");
       setDraft("");
