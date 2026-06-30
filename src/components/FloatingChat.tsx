@@ -64,6 +64,8 @@ type ClienteResponse = {
 
 type ChatStep = "name" | "whatsapp" | "ready";
 
+type ChatToast = { nombre: string; mensaje: string; hora: string };
+
 type VisitorProfile = {
   name: string;
   whatsapp: string;
@@ -89,6 +91,8 @@ export default function FloatingChat() {
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse]     = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatToast, setChatToast] = useState<ChatToast | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => getStoredValue("zen-chat-sound-enabled") !== "false");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -199,6 +203,37 @@ export default function FloatingChat() {
     if (!adminMessages.length) return 0;
     const lastReadIndex = adminMessages.findIndex((item) => adminMessageKey(item) === lastRead);
     return lastReadIndex >= 0 ? adminMessages.length - lastReadIndex - 1 : adminMessages.length;
+  };
+
+  const playMessageSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 740;
+      gain.gain.value = 0.035;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      window.setTimeout(() => { osc.stop(); ctx.close(); }, 140);
+    } catch {}
+  };
+
+  const notifyIncomingAdminMessage = (message: ChatMessage) => {
+    const toast = { nombre: message.autor_nombre || "Romina", mensaje: message.mensaje, hora: new Date(message.creado_en).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) };
+    setChatToast(toast);
+    window.setTimeout(() => setChatToast(null), 7000);
+    playMessageSound();
+    if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        const n = new Notification(toast.nombre, { body: toast.mensaje });
+        n.onclick = () => { window.focus(); setOpen(true); n.close(); };
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+    }
   };
 
   const appendMessage = (message: ChatMessage) => {
@@ -356,6 +391,7 @@ export default function FloatingChat() {
         } else {
           setUnreadCount((current) => current + 1);
           setPulse(true);
+          notifyIncomingAdminMessage(message);
         }
       }
     });
@@ -1068,6 +1104,20 @@ export default function FloatingChat() {
         </div>
       </div>
 
+      {chatToast && !open && (
+        <div style={{ position: "fixed", right: 20, bottom: 90, zIndex: 10000, width: 280, background: "white", border: "1px solid #EDE9FE", borderRadius: 16, padding: 12, boxShadow: "0 14px 34px rgba(124,58,237,0.20)" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#7C3AED", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>{chatToast.nombre.slice(0, 1).toUpperCase()}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ fontSize: 13, color: "#111827" }}>{chatToast.nombre}</strong>
+              <p style={{ margin: "3px 0", color: "#6B7280", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{chatToast.mensaje}</p>
+              <span style={{ color: "#9CA3AF", fontSize: 11 }}>{chatToast.hora}</span>
+            </div>
+            <button onClick={() => { setOpen(true); setChatToast(null); }} style={{ background: "#7C3AED", color: "white", border: "none", borderRadius: 8, padding: "6px 8px", fontSize: 11, cursor: "pointer" }}>Abrir</button>
+          </div>
+        </div>
+      )}
+
       {/* ── FAB button ── */}
       <div
         style={{
@@ -1135,6 +1185,13 @@ export default function FloatingChat() {
             {unreadCount > 9 ? "9+" : unreadCount}
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => { const next = !soundEnabled; setSoundEnabled(next); setStoredValue("zen-chat-sound-enabled", String(next)); }}
+          title={soundEnabled ? "Sonido activo" : "Sonido apagado"}
+          style={{ position: "absolute", right: 0, bottom: 66, border: "none", borderRadius: 999, background: "white", color: "#7C3AED", width: 26, height: 26, boxShadow: "0 4px 12px rgba(124,58,237,0.18)", cursor: "pointer", fontSize: 12 }}
+        >{soundEnabled ? "🔔" : "🔕"}</button>
 
         <button
           onClick={handleToggle}
