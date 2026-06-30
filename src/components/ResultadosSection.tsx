@@ -272,9 +272,21 @@ export default function ResultadosSection() {
   const photoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch(apiUrl("/api/reviews"))
+    fetch(apiUrl("/api/resenas/publicas"))
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(setReviews)
+      .then((items) => {
+        const publicReviews = Array.isArray(items) ? items.map((item) => ({
+          id: Number(item.id),
+          name: item.nombre_cliente || "Cliente Zen",
+          pet: item.mascota_nombre || "",
+          text: item.comentario || "",
+          stars: Number(item.calificacion || 5),
+          photo: item.fotos?.[0] ? apiUrl(item.fotos[0]) : null,
+          approved: true,
+          createdAt: item.creado_en || new Date().toISOString(),
+        })) : [];
+        if (publicReviews.length > 0) setReviews(publicReviews);
+      })
       .catch(() => { /* keep fallback */ });
   }, []);
 
@@ -296,12 +308,13 @@ export default function ResultadosSection() {
     setRSending(true);
     try {
       const fd = new FormData();
-      fd.append("name", rName);
-      fd.append("pet", rPet);
-      fd.append("text", rText);
-      fd.append("stars", String(rStars));
-      if (rPhoto) fd.append("photo", rPhoto);
-      await fetch(apiUrl("/api/reviews"), { method: "POST", body: fd });
+      fd.append("nombre_cliente", rName.trim());
+      fd.append("mascota_nombre", rPet.trim());
+      fd.append("comentario", rText.trim());
+      fd.append("calificacion", String(rStars));
+      if (rPhoto) fd.append("foto", rPhoto);
+      const response = await fetch(apiUrl("/api/resenas"), { method: "POST", body: fd });
+      if (!response.ok) throw new Error("No se pudo enviar la reseña.");
     } catch { /* still show success */ }
     setRSent(true);
     setRSending(false);
