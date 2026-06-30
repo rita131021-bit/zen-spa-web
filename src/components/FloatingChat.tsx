@@ -217,8 +217,9 @@ export default function FloatingChat() {
       gain.gain.value = 0.035;
       osc.connect(gain);
       gain.connect(ctx.destination);
+      void ctx.resume?.();
       osc.start();
-      window.setTimeout(() => { osc.stop(); ctx.close(); }, 140);
+      window.setTimeout(() => { osc.stop(); ctx.close(); }, 180);
     } catch {}
   };
 
@@ -245,6 +246,16 @@ export default function FloatingChat() {
     }
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
+    if (permission === "granted") {
+      const n = new Notification("Zen Spa", { body: "Notificaciones del chat activadas" });
+      window.setTimeout(() => n.close(), 3500);
+    }
+  };
+
+  const testMessageSound = () => {
+    playMessageSound();
+    setChatToast({ nombre: "Zen Spa", mensaje: "Sonido de chat activo", hora: new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) });
+    window.setTimeout(() => setChatToast(null), 2500);
   };
 
   const appendMessage = (message: ChatMessage) => {
@@ -783,6 +794,19 @@ export default function FloatingChat() {
             </button>
           </div>
 
+          <div style={{ display: "flex", gap: 8, padding: "10px 14px 0", flexWrap: "wrap" }}>
+            {notificationPermission === "default" && (
+              <button type="button" onClick={activateNotifications} style={{ border: "1px solid #EDE9FE", background: "white", color: "#7C3AED", borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Activar notificaciones</button>
+            )}
+            {notificationPermission === "granted" && (
+              <button type="button" onClick={activateNotifications} style={{ border: "1px solid #DCFCE7", background: "#F0FDF4", color: "#16A34A", borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Notificaciones activas</button>
+            )}
+            {notificationPermission === "denied" && (
+              <span style={{ color: "#DC2626", fontSize: 11, fontWeight: 800, alignSelf: "center" }}>Notificaciones bloqueadas</span>
+            )}
+            <button type="button" onClick={testMessageSound} style={{ border: "1px solid #EDE9FE", background: "white", color: "#7C3AED", borderRadius: 999, padding: "6px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Probar sonido</button>
+          </div>
+
           <div style={{ padding: "14px 14px 12px" }}>
             <div style={{
               background: "#FAF7FF",
@@ -1113,12 +1137,6 @@ export default function FloatingChat() {
           }}>
             <PawIcon size={11} color="#C4B5FD" />
             <span style={{ fontSize: 11, color: "#C4B5FD", fontWeight: 600 }}>Zen Spa para Mascotas · Respondemos en minutos</span>
-            {notificationPermission === "default" && (
-              <button type="button" onClick={activateNotifications} style={{ border: "1px solid #EDE9FE", background: "white", color: "#7C3AED", borderRadius: 999, padding: "4px 8px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" }}>Activar notificaciones</button>
-            )}
-            {notificationPermission === "granted" && (
-              <span style={{ fontSize: 10.5, color: "#22C55E", fontWeight: 800 }}>Notificaciones activas</span>
-            )}
           </div>
         </div>
       </div>
