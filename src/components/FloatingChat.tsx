@@ -93,6 +93,7 @@ export default function FloatingChat() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [chatToast, setChatToast] = useState<ChatToast | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => getStoredValue("zen-chat-sound-enabled") !== "false");
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -224,16 +225,26 @@ export default function FloatingChat() {
   const notifyIncomingAdminMessage = (message: ChatMessage) => {
     const toast = { nombre: message.autor_nombre || "Romina", mensaje: message.mensaje, hora: new Date(message.creado_en).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) };
     setChatToast(toast);
-    window.setTimeout(() => setChatToast(null), 7000);
+    window.setTimeout(() => setChatToast(null), 9000);
     playMessageSound();
     if ("Notification" in window) {
+      setNotificationPermission(Notification.permission);
       if (Notification.permission === "granted") {
         const n = new Notification(toast.nombre, { body: toast.mensaje });
         n.onclick = () => { window.focus(); setOpen(true); n.close(); };
-      } else if (Notification.permission === "default") {
-        Notification.requestPermission().catch(() => {});
       }
+    } else {
+      setNotificationPermission("unsupported");
     }
+  };
+
+  const activateNotifications = async () => {
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
   };
 
   const appendMessage = (message: ChatMessage) => {
@@ -668,6 +679,8 @@ export default function FloatingChat() {
 
   useEffect(() => {
     getOrCreateVisitorId();
+    if ("Notification" in window) setNotificationPermission(Notification.permission);
+    else setNotificationPermission("unsupported");
   }, []);
 
   useEffect(() => {
@@ -1100,6 +1113,12 @@ export default function FloatingChat() {
           }}>
             <PawIcon size={11} color="#C4B5FD" />
             <span style={{ fontSize: 11, color: "#C4B5FD", fontWeight: 600 }}>Zen Spa para Mascotas · Respondemos en minutos</span>
+            {notificationPermission === "default" && (
+              <button type="button" onClick={activateNotifications} style={{ border: "1px solid #EDE9FE", background: "white", color: "#7C3AED", borderRadius: 999, padding: "4px 8px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" }}>Activar notificaciones</button>
+            )}
+            {notificationPermission === "granted" && (
+              <span style={{ fontSize: 10.5, color: "#22C55E", fontWeight: 800 }}>Notificaciones activas</span>
+            )}
           </div>
         </div>
       </div>
