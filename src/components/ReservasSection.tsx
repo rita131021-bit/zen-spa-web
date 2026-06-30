@@ -50,6 +50,7 @@ interface BackendService {
   nombre: string;
   categoria?: string | null;
   activo?: number | boolean | null;
+  local_id?: number | string | null;
 }
 
 interface BackendClient {
@@ -618,8 +619,10 @@ export default function ReservasSection() {
       const selectedHour = isGuarderia ? startHour : spaHour;
       if (!selectedDate || !selectedHour) throw new Error("Fecha u horario invalido.");
 
+      const localName = isGuarderia ? "Juan Báez al final" : "Villaguay al 1000";
       const notes = [
         "Solicitud creada desde la web",
+        `Local: ${localName}`,
         `Responsable: ${ownerName.trim()}`,
         `WhatsApp: ${ownerWhatsapp.trim()}`,
         `Servicio solicitado: ${selectedSvc?.label ?? service}`,
@@ -693,6 +696,7 @@ export default function ReservasSection() {
       const backendServices = (await serviciosRes.json()) as BackendService[];
       const backendService = pickBackendService(backendServices, selectedSvc, category, species);
       if (!backendService) throw new Error("No hay servicios activos para crear el turno.");
+      const selectedLocalId = backendService.local_id ?? (isGuarderia ? 2 : 1);
 
       const res = await fetch(apiUrl("/api/turnos"), {
         method: "POST",
@@ -701,6 +705,7 @@ export default function ReservasSection() {
           cliente_id: clienteId,
           mascota_id: mascotaId,
           servicio_id: backendService.id,
+          local_id: selectedLocalId,
           fecha: toYMD(selectedDate),
           hora: selectedHour,
           fecha_egreso: isGuarderia && endDate ? toYMD(endDate) : null,
