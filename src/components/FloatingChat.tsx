@@ -87,6 +87,7 @@ export default function FloatingChat() {
   const [open, setOpen]       = useState(false);
   const [visible, setVisible] = useState(false);
   const [pulse, setPulse]     = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -107,6 +108,12 @@ export default function FloatingChat() {
   const clienteIdRef = useRef<string>("");
   const visitorNameRef = useRef("");
   const visitorTopicRef = useRef("");
+  const openRef = useRef(false);
+
+  useEffect(() => {
+    openRef.current = open;
+    if (open) setUnreadCount(0);
+  }, [open]);
 
   const statusLabel = useMemo(() => {
     if (onboardingStep !== "ready") return "Registrá tus datos";
@@ -321,6 +328,9 @@ export default function FloatingChat() {
     socket.on("mensaje:nuevo", (message: ChatMessage) => {
       if (String(message.cliente_id) !== String(clienteIdRef.current)) return;
       appendMessage(message);
+      if (message.autor_tipo === "admin" && !openRef.current) {
+        setUnreadCount((current) => current + 1);
+      }
     });
 
     socketRef.current = socket;
@@ -616,7 +626,11 @@ export default function FloatingChat() {
 
   /* Stop pulse when opened */
   const handleToggle = () => {
-    setOpen(v => !v);
+    setOpen((current) => {
+      const next = !current;
+      if (next) setUnreadCount(0);
+      return next;
+    });
     setPulse(false);
   };
 
@@ -1056,6 +1070,30 @@ export default function FloatingChat() {
             transition: "opacity 0.3s ease",
           }}>
             ¡Chateá con nosotros! 🌸
+          </div>
+        )}
+
+        {unreadCount > 0 && !open && (
+          <div
+            title="Respuestas nuevas"
+            style={{
+              position: "absolute",
+              top: -6,
+              right: -4,
+              minWidth: 22,
+              height: 22,
+              padding: "0 7px",
+              borderRadius: 999,
+              background: "#EF4444",
+              color: "white",
+              fontSize: 12,
+              fontWeight: 900,
+              lineHeight: "22px",
+              textAlign: "center",
+              boxShadow: "0 4px 12px rgba(239,68,68,0.35)",
+            }}
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
           </div>
         )}
 
