@@ -9,6 +9,7 @@ const CLIENT_STORAGE_KEY = "zen-chat-cliente-id";
 const CLIENT_NAME_STORAGE_KEY = "zen-chat-cliente-nombre";
 const CLIENT_WHATSAPP_STORAGE_KEY = "zen-chat-cliente-whatsapp";
 const CLIENT_TOPIC_STORAGE_KEY = "zen-chat-consulta";
+const CLIENT_READ_STORAGE_KEY = "zen-chat-last-read-admin-message";
 const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production-df4d.up.railway.app";
 
 const getStoredValue = (key: string) => {
@@ -184,6 +185,22 @@ export default function FloatingChat() {
     return generated;
   };
 
+  const adminMessageKey = (message: ChatMessage) => `${message.id || ""}:${message.creado_en || ""}`;
+
+  const markAdminMessagesRead = (items = messages) => {
+    const lastAdmin = [...items].reverse().find((item) => item.autor_tipo === "admin");
+    if (lastAdmin) setStoredValue(CLIENT_READ_STORAGE_KEY, adminMessageKey(lastAdmin));
+    setUnreadCount(0);
+  };
+
+  const countUnreadAdminMessages = (items: ChatMessage[]) => {
+    const lastRead = getStoredValue(CLIENT_READ_STORAGE_KEY) || "";
+    const adminMessages = items.filter((item) => item.autor_tipo === "admin");
+    if (!adminMessages.length) return 0;
+    const lastReadIndex = adminMessages.findIndex((item) => adminMessageKey(item) === lastRead);
+    return lastReadIndex >= 0 ? adminMessages.length - lastReadIndex - 1 : adminMessages.length;
+  };
+
   const appendMessage = (message: ChatMessage) => {
     setMessages((current) => {
       const exists = current.some((item) => String(item.id) === String(message.id));
@@ -279,6 +296,11 @@ export default function FloatingChat() {
       const data = (await response.json()) as ChatMessage[];
       const normalizedMessages = Array.isArray(data) ? data : [];
       setMessages(normalizedMessages);
+      if (!openRef.current) {
+        setUnreadCount(countUnreadAdminMessages(normalizedMessages));
+      } else {
+        markAdminMessagesRead(normalizedMessages);
+      }
       return normalizedMessages;
     } finally {
       setLoadingHistory(false);
@@ -328,8 +350,13 @@ export default function FloatingChat() {
     socket.on("mensaje:nuevo", (message: ChatMessage) => {
       if (String(message.cliente_id) !== String(clienteIdRef.current)) return;
       appendMessage(message);
-      if (message.autor_tipo === "admin" && !openRef.current) {
-        setUnreadCount((current) => current + 1);
+      if (message.autor_tipo === "admin") {
+        if (openRef.current) {
+          setStoredValue(CLIENT_READ_STORAGE_KEY, adminMessageKey(message));
+        } else {
+          setUnreadCount((current) => current + 1);
+          setPulse(true);
+        }
       }
     });
 
@@ -610,8 +637,20 @@ export default function FloatingChat() {
   useEffect(() => {
     if (open) {
       void initializeChat();
+      markAdminMessagesRead();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const storedClientId = getStoredValue(CLIENT_STORAGE_KEY);
+    const storedName = getStoredValue(CLIENT_NAME_STORAGE_KEY);
+    const storedWhatsapp = getStoredValue(CLIENT_WHATSAPP_STORAGE_KEY);
+    const storedTopic = getStoredValue(CLIENT_TOPIC_STORAGE_KEY);
+    if (storedClientId && storedName && storedWhatsapp && storedTopic) {
+      void initializeChat();
+    }
+  }, [visible]);
 
   useEffect(() => {
     scrollToBottom();
@@ -628,7 +667,7 @@ export default function FloatingChat() {
   const handleToggle = () => {
     setOpen((current) => {
       const next = !current;
-      if (next) setUnreadCount(0);
+      if (next) markAdminMessagesRead();
       return next;
     });
     setPulse(false);
@@ -641,7 +680,7 @@ export default function FloatingChat() {
       {/* ── Backdrop (mobile) ── */}
       {open && (
         <div
-          onClick={() => setOpen(false)}
+          onClick={() => { setOpen(false); }}
           style={{
             position: "fixed", inset: 0,
             background: "rgba(0,0,0,0.18)",
