@@ -61,10 +61,15 @@
         var target = event.target && event.target.closest ? event.target.closest('a, button') : null;
         if (!target || !window.zenTrack) return;
         var text = (target.innerText || target.getAttribute('aria-label') || target.title || '').trim().toLowerCase();
-        var href = target.getAttribute('href') || '';
-        if (href.indexOf('wa.me') >= 0 || text.indexOf('whatsapp') >= 0) window.zenTrack('click_whatsapp');
-        if (text.indexOf('reservar') >= 0 || text.indexOf('reserva') >= 0) window.zenTrack('click_reservar');
-        if (text.indexOf('chat') >= 0 || target.getAttribute('aria-label') === 'Abrir chat') window.zenTrack('click_chat_online');
+        var href = (target.getAttribute('href') || '').toLowerCase();
+        var payload = { label: text || href || 'sin_etiqueta', href: href || undefined };
+
+        if (href.indexOf('wa.me') >= 0 || href.indexOf('whatsapp') >= 0 || text.indexOf('whatsapp') >= 0) window.zenTrack('click_whatsapp', payload);
+        if (href.indexOf('tel:') === 0 || text.indexOf('llamar') >= 0 || text.indexOf('telefono') >= 0) window.zenTrack('click_telefono', payload);
+        if (href.indexOf('google.com/maps') >= 0 || href.indexOf('maps.app.goo.gl') >= 0 || text.indexOf('como llegar') >= 0 || text.indexOf('ubicacion') >= 0 || text.indexOf('google maps') >= 0) window.zenTrack('click_google_maps', payload);
+        if (text.indexOf('reservar') >= 0 || text.indexOf('reserva') >= 0) window.zenTrack('reserva_iniciada', payload);
+        if (text.indexOf('chat') >= 0 || target.getAttribute('aria-label') === 'Abrir chat') window.zenTrack('chat_online_iniciado', payload);
+        if (text.indexOf('mercadopago') >= 0 || text.indexOf('pagar') >= 0 || text.indexOf('seña') >= 0 || text.indexOf('pago') >= 0) window.zenTrack('pago_iniciado', payload);
       }, true);
 
       document.addEventListener('submit', function(event) {
