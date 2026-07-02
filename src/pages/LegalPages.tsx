@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "wouter";
 
 const updatedAt = "2 de julio de 2026";
 
@@ -69,7 +68,7 @@ export function SiteFooter() {
         </div>
         <nav aria-label="Enlaces legales" style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
           {links.map(([label, href]) => (
-            <Link key={href} href={href} style={{ color: "#EDE9FE", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>{label}</Link>
+            <a key={href} href={href} style={{ color: "#EDE9FE", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>{label}</a>
           ))}
         </nav>
       </div>
@@ -94,7 +93,7 @@ export function CookieConsent() {
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ flex: "1 1 360px" }}>
           <p style={{ margin: 0, fontWeight: 900, color: "#111827" }}>Cookies y medicion</p>
-          <p style={{ margin: "5px 0 0", color: "#4B5563", fontSize: 13, lineHeight: 1.5 }}>Usamos cookies necesarias y, si aceptas, medicion gratuita para mejorar reservas, chat y contenido. Podes revisar la <Link href="/cookies" style={{ color: "#7C3AED", fontWeight: 800 }}>Politica de Cookies</Link>.</p>
+          <p style={{ margin: "5px 0 0", color: "#4B5563", fontSize: 13, lineHeight: 1.5 }}>Usamos cookies necesarias y, si aceptas, medicion gratuita para mejorar reservas, chat y contenido. Podes revisar la <a href="/cookies" style={{ color: "#7C3AED", fontWeight: 800 }}>Politica de Cookies</a>.</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => choose("rejected")} style={{ border: "1px solid #D1D5DB", background: "white", color: "#374151", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}>Rechazar</button>
@@ -114,7 +113,7 @@ export function LegalPage({ type }: { type: LegalType }) {
   return (
     <div style={{ minHeight: "100vh", background: "#F8F7FF", color: "#111827" }}>
       <main style={{ maxWidth: 920, margin: "0 auto", padding: "48px 18px" }}>
-        <Link href="/" style={{ color: "#7C3AED", fontWeight: 800, textDecoration: "none" }}>Volver al inicio</Link>
+        <a href="/" style={{ color: "#7C3AED", fontWeight: 800, textDecoration: "none" }}>Volver al inicio</a>
         <section style={{ background: "white", borderRadius: 18, padding: "32px 24px", marginTop: 20, boxShadow: "0 12px 34px rgba(124,58,237,0.10)" }}>
           <p style={{ color: "#7C3AED", fontWeight: 900, margin: 0, fontSize: 13 }}>Ultima actualizacion: {updatedAt}</p>
           <h1 style={{ fontSize: "clamp(2rem, 5vw, 3.2rem)", margin: "10px 0 10px", color: "#3B1A8A", fontWeight: 950 }}>{page.title}</h1>
