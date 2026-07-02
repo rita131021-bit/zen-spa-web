@@ -38,7 +38,7 @@ function Router() {
 export default function App() {
   return (
     <AdminProvider>
-      <WouterRouter base={import.meta.env.BASE_URL.replace(//$/, "")}>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <Router />
         <CookieConsent />
         <AdminFloatingButton />
