@@ -11,6 +11,7 @@ import ResultadosSection from "@/components/ResultadosSection";
 import ReservasSection from "@/components/ReservasSection";
 import UbicacionesSection from "@/components/UbicacionesSection";
 import FloatingChat from "@/components/FloatingChat";
+import { SiteFooter } from "@/pages/LegalPages";
 
 export default function Home() {
   return (
@@ -27,6 +28,7 @@ export default function Home() {
       <ResultadosSection />
       <ReservasSection />
       <UbicacionesSection />
+      <SiteFooter />
       <FloatingChat />
     </div>
   );
