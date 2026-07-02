@@ -1,21 +1,113 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es-AR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Zen Pet Spa - Home</title>
-    <meta name="description" content="Zen Pet Spa - Home — built on Replit. Update this description to reflect the app." />
-    <meta name="robots" content="index, follow" />
-    <meta property="og:title" content="Zen Pet Spa - Home" />
-    <meta property="og:description" content="Zen Pet Spa - Home — built on Replit. Update this description to reflect the app." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5" />
+    <title>Zen Spa para Mascotas | Peluqueria, spa y guarderia en Argentina</title>
+    <meta name="description" content="Zen Spa para Mascotas ofrece peluqueria, spa, terapias, guarderia, reservas online y atencion personalizada para perros y gatos." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="google-site-verification" content="%VITE_GOOGLE_SITE_VERIFICATION%" />
+    <link rel="canonical" href="https://zen-spa-web.vercel.app/" />
+    <meta name="theme-color" content="#7C3AED" />
+
+    <meta property="og:title" content="Zen Spa para Mascotas" />
+    <meta property="og:description" content="Peluqueria, spa, terapias y guarderia para mascotas con reservas online y atencion amorosa." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://zen-spa-web.vercel.app/" />
+    <meta property="og:image" content="https://zen-spa-web.vercel.app/opengraph.jpg" />
+    <meta property="og:locale" content="es_AR" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Zen Pet Spa - Home" />
-    <meta name="twitter:description" content="Zen Pet Spa - Home — built on Replit. Update this description to reflect the app." />
+    <meta name="twitter:title" content="Zen Spa para Mascotas" />
+    <meta name="twitter:description" content="Cuidado profesional, spa, peluqueria y guarderia para perros y gatos." />
+    <meta name="twitter:image" content="https://zen-spa-web.vercel.app/opengraph.jpg" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="/assets/logo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://zen-spa-backend-production-df4d.up.railway.app" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      window.zenTrack = function(eventName, params) {
+        window.dataLayer.push(Object.assign({ event: eventName }, params || {}));
+        if (typeof window.gtag === 'function') window.gtag('event', eventName, params || {});
+      };
+
+      (function() {
+        var GA_ID = "%VITE_GA_MEASUREMENT_ID%";
+        var GTM_ID = "%VITE_GTM_ID%";
+        if (GTM_ID && GTM_ID.indexOf('%') !== 0 && /^GTM-/.test(GTM_ID)) {
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(GTM_ID);
+          document.head.appendChild(s);
+        }
+        if (GA_ID && GA_ID.indexOf('%') !== 0 && /^G-/.test(GA_ID)) {
+          var s2 = document.createElement('script');
+          s2.async = true;
+          s2.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
+          document.head.appendChild(s2);
+          window.gtag = window.gtag || function(){ window.dataLayer.push(arguments); };
+          window.gtag('js', new Date());
+          window.gtag('config', GA_ID, { anonymize_ip: true });
+        }
+      })();
+
+      document.addEventListener('click', function(event) {
+        var target = event.target && event.target.closest ? event.target.closest('a, button') : null;
+        if (!target || !window.zenTrack) return;
+        var text = (target.innerText || target.getAttribute('aria-label') || target.title || '').trim().toLowerCase();
+        var href = target.getAttribute('href') || '';
+        if (href.indexOf('wa.me') >= 0 || text.indexOf('whatsapp') >= 0) window.zenTrack('click_whatsapp');
+        if (text.indexOf('reservar') >= 0 || text.indexOf('reserva') >= 0) window.zenTrack('click_reservar');
+        if (text.indexOf('chat') >= 0 || target.getAttribute('aria-label') === 'Abrir chat') window.zenTrack('click_chat_online');
+      }, true);
+
+      document.addEventListener('submit', function(event) {
+        if (window.zenTrack) window.zenTrack('formulario_enviado', { form_id: event.target && event.target.id ? event.target.id : 'sin_id' });
+      }, true);
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": ["Organization", "LocalBusiness", "PetGrooming"],
+            "@id": "https://zen-spa-web.vercel.app/#business",
+            "name": "Zen Spa para Mascotas",
+            "url": "https://zen-spa-web.vercel.app/",
+            "logo": "https://zen-spa-web.vercel.app/assets/logo.png",
+            "image": "https://zen-spa-web.vercel.app/opengraph.jpg",
+            "description": "Peluqueria, spa, terapias y guarderia para mascotas con reservas online.",
+            "areaServed": "Argentina",
+            "telephone": "+543435171937",
+            "sameAs": ["https://wa.me/3435171937"],
+            "priceRange": "$$",
+            "address": [
+              { "@type": "PostalAddress", "streetAddress": "Villaguay al 1000", "addressCountry": "AR" },
+              { "@type": "PostalAddress", "streetAddress": "Juan Baez al final", "addressCountry": "AR" }
+            ],
+            "makesOffer": [
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Peluqueria para mascotas" } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Spa para perros y gatos" } },
+              { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Guarderia para mascotas" } }
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://zen-spa-web.vercel.app/#breadcrumbs",
+            "itemListElement": [
+              { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://zen-spa-web.vercel.app/" }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
