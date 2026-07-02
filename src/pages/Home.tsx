@@ -7,7 +7,7 @@ import CombosSection from "@/components/CombosSection";
 import GiftCardsSection from "@/components/GiftCardsSection";
 import RequisitosSection from "@/components/RequisitosSection";
 import SobreMiSection from "@/components/SobreMiSection";
-import ResultadosSection from "@/components/ResultadosSectionSafe";
+import ResultadosSection from "@/components/ResultadosSection";
 import ReservasSection from "@/components/ReservasSection";
 import UbicacionesSection from "@/components/UbicacionesSection";
 import FloatingChat from "@/components/FloatingChat";
