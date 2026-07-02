@@ -3,6 +3,7 @@ import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
 import { AdminProvider } from "@/context/AdminContext";
 import AdminFloatingButton from "@/components/AdminFloatingButton";
+import { CookieConsent, LegalPage } from "@/pages/LegalPages";
 
 function NotFound() {
   return (
@@ -15,11 +16,20 @@ function NotFound() {
   );
 }
 
+function Privacidad() { return <LegalPage type="privacidad" />; }
+function Terminos() { return <LegalPage type="terminos" />; }
+function Cookies() { return <LegalPage type="cookies" />; }
+function AvisoLegal() { return <LegalPage type="aviso" />; }
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/admin" component={Admin} />
+      <Route path="/privacidad" component={Privacidad} />
+      <Route path="/terminos" component={Terminos} />
+      <Route path="/cookies" component={Cookies} />
+      <Route path="/aviso-legal" component={AvisoLegal} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -28,8 +38,9 @@ function Router() {
 export default function App() {
   return (
     <AdminProvider>
-      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(//$/, "")}>
         <Router />
+        <CookieConsent />
         <AdminFloatingButton />
       </WouterRouter>
     </AdminProvider>
