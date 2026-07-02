@@ -1,0 +1,16 @@
+{
+  "name": "Zen Spa para Mascotas",
+  "short_name": "Zen Spa",
+  "description": "Peluqueria, spa y guarderia para mascotas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7C3AED",
+  "icons": [
+    {
+      "src": "/assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
