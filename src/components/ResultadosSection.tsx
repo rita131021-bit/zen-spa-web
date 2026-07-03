@@ -385,9 +385,24 @@ export default function ResultadosSection() {
                 display: "flex", flexDirection: "column",
               }}>
                 {/* Photo banner if present */}
-                {r.photo && (
-                  <div style={{ height: 120, overflow: "hidden", flexShrink: 0 }}>
-                    <img src={r.photo} alt={`Foto de ${r.name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {(r.photos?.length || r.photo) && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: (r.photos?.length || 0) > 1 ? "1fr 1fr" : "1fr",
+                      gap: 4,
+                      padding: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(r.photos?.length ? r.photos : r.photo ? [r.photo] : []).map((photo, index) => (
+                      <img
+                        key={`${photo}-${index}`}
+                        src={photo}
+                        alt={`Foto ${index + 1} de ${r.name}`}
+                        style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 10 }}
+                      />
+                    ))}
                   </div>
                 )}
                 <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
