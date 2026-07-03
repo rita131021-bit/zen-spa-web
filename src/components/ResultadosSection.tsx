@@ -37,6 +37,7 @@ interface ReviewEntry {
   name: string;
   pet: string;
   text: string;
+  response?: string | null;
   stars: number;
   photo: string | null;
   photos?: string[];
@@ -299,6 +300,7 @@ export default function ResultadosSection() {
           name: item.nombre_cliente || "Cliente Zen",
           pet: item.mascota_nombre || "",
           text: item.comentario || "",
+          response: item.respuesta || null,
           stars: Number(item.calificacion || 5),
           photo: item.fotos?.[0] ? apiUrl(item.fotos[0]) : null,
           photos: Array.isArray(item.fotos) ? item.fotos.map((foto: string) => apiUrl(foto)) : [],
@@ -452,6 +454,12 @@ export default function ResultadosSection() {
                     </span>
                   </div>
                   <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.55, margin: 0, flex: 1 }}>{r.text}</p>
+                  {r.response && (
+                    <div style={{ background: "#F5F0FF", border: "1px solid #EDE9FE", borderRadius: 12, padding: "10px 12px", marginTop: 2 }}>
+                      <p style={{ fontSize: 11, fontWeight: 800, color: "#7C3AED", margin: "0 0 4px" }}>Respuesta de Zen Spa</p>
+                      <p style={{ fontSize: 12.5, color: "#4C1D95", lineHeight: 1.5, margin: 0 }}>{r.response}</p>
+                    </div>
+                  )}
                   <Heart size={13} color="#DDD6FE" fill="#DDD6FE" />
                 </div>
               </div>
