@@ -39,6 +39,7 @@ interface ReviewEntry {
   text: string;
   stars: number;
   photo: string | null;
+  photos?: string[];
   approved: boolean;
   createdAt: string;
 }
@@ -283,10 +284,16 @@ export default function ResultadosSection() {
           text: item.comentario || "",
           stars: Number(item.calificacion || 5),
           photo: item.fotos?.[0] ? apiUrl(item.fotos[0]) : null,
+          photos: Array.isArray(item.fotos) ? item.fotos.map((foto: string) => apiUrl(foto)) : [],
           approved: true,
           createdAt: item.creado_en || new Date().toISOString(),
         })) : [];
-        if (publicReviews.length > 0) setReviews(publicReviews);
+        if (publicReviews.length > 0) {
+          setReviews([
+            ...publicReviews,
+            ...FALLBACK_RESENAS.filter((fallback) => !publicReviews.some((review) => review.id === fallback.id)),
+          ]);
+        }
       })
       .catch(() => { /* keep fallback */ });
   }, []);
