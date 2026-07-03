@@ -64,6 +64,9 @@ const STATIC_GALLERY = [
   "/api/uploads/galeria3.png",
   "/api/uploads/galeria4.png",
   "/api/uploads/galeria5.png",
+  "/assets/guarderia-canina-photo.png",
+  "/assets/guarderia-felina-photo.png",
+  "/assets/guarderia-canina-card.png",
 ];
 
 type Tab = "antes-despues" | "resenas" | "galeria";
@@ -259,7 +262,20 @@ export default function ResultadosSection() {
   useEffect(() => {
     fetch(apiUrl("/api/gallery"))
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(setGallery)
+      .then((items) => {
+        const dynamicGallery = Array.isArray(items)
+          ? items
+              .map((item, index) => (typeof item === "string" ? { id: index, url: item } : item))
+              .filter((item) => item?.url)
+          : [];
+
+        if (dynamicGallery.length > 0) {
+          setGallery([
+            ...dynamicGallery,
+            ...STATIC_GALLERY.map((url, i) => ({ id: 1000 + i, url })).filter((photo) => !dynamicGallery.some((item) => item.url === photo.url)),
+          ]);
+        }
+      })
       .catch(() => { /* keep fallback */ });
   }, []);
   const [rName, setRName] = useState("");
@@ -272,6 +288,7 @@ export default function ResultadosSection() {
   const [rPhoto, setRPhoto] = useState<File | null>(null);
   const [rPhotoPreview, setRPhotoPreview] = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
+  const reviewsCarouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(apiUrl("/api/resenas/publicas"))
@@ -375,7 +392,18 @@ export default function ResultadosSection() {
 
         {/* ── RESEÑAS ── */}
         {activeTab === "resenas" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div
+            ref={reviewsCarouselRef}
+            style={{
+              display: "flex",
+              gap: 20,
+              overflowX: "auto",
+              scrollSnapType: "x mandatory",
+              scrollBehavior: "smooth",
+              padding: "4px 8px 14px",
+              scrollbarWidth: "thin",
+            }}
+          >
             {reviews.map(r => (
               <div key={r.id} style={{
                 background: "white", borderRadius: 18,
@@ -383,6 +411,8 @@ export default function ResultadosSection() {
                 boxShadow: "0 2px 12px rgba(124,58,237,0.07)",
                 overflow: "hidden",
                 display: "flex", flexDirection: "column",
+                flex: "0 0 min(310px, 86vw)",
+                scrollSnapAlign: "start",
               }}>
                 {/* Photo banner if present */}
                 {(r.photos?.length || r.photo) && (
