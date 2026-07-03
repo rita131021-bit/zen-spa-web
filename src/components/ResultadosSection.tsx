@@ -65,9 +65,6 @@ const STATIC_GALLERY = [
   "/api/uploads/galeria3.png",
   "/api/uploads/galeria4.png",
   "/api/uploads/galeria5.png",
-  "/assets/guarderia-canina-photo.png",
-  "/assets/guarderia-felina-photo.png",
-  "/assets/guarderia-canina-card.png",
 ];
 
 type Tab = "antes-despues" | "resenas" | "galeria";
@@ -188,7 +185,18 @@ function AntesDespuesCarousel() {
   useEffect(() => {
     fetch(apiUrl("/api/dogs"))
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(setDogs)
+      .then((items) => {
+        const uploadedDogs = Array.isArray(items)
+          ? items.map((item) => ({
+              ...item,
+              antes: item.antes?.startsWith("/api/") ? apiUrl(item.antes) : item.antes,
+              despues: item.despues?.startsWith("/api/") ? apiUrl(item.despues) : item.despues,
+              combined: item.combined?.startsWith("/api/") ? apiUrl(item.combined) : item.combined,
+            }))
+          : [];
+
+        if (uploadedDogs.length > 0) setDogs(uploadedDogs);
+      })
       .catch(() => { /* keep fallback */ });
   }, []);
 
