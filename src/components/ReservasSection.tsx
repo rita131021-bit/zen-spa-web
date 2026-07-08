@@ -144,9 +144,7 @@ const CATEGORIES: ServiceCategory[] = [
   {
     id: "terapias", label: "Terapias", emoji: "❧",
     services: [
-      { id: "reiki", priceId: "ter-completo", label: "Reiki", desc: "Equilibrio energético y emocional", fallbackPrice: "$18.000" },
-      { id: "flores", priceId: "ter-completo", label: "Flores de Bach", desc: "Terapia floral para el bienestar", fallbackPrice: "$18.000" },
-      { id: "masote", priceId: "ter-completo", label: "Masoterapia", desc: "Masajes terapéuticos y relajación", fallbackPrice: "$18.000" },
+      { id: "terapia-alternativa", priceId: "ter-completo", label: "Terapia Alternativa", desc: "Bienestar integral y equilibrio emocional", fallbackPrice: "$18.000" },
     ],
   },
   {
