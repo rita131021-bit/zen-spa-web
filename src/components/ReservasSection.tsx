@@ -103,6 +103,12 @@ function pickBackendService(services: BackendService[], selected: ServiceOption 
   if (categoryKey === "guarderia") {
     return byName(speciesKey === "gato" ? "felina" : "canina") ?? active.find(service => normalizeText(service.categoria).includes("guarderia"));
   }
+  if (categoryKey === "peluqueria") {
+    const kind = label.includes("felina") ? "felina" : "canina";
+    return active.find(service =>
+      normalizeText(service.categoria).includes("peluqueria") && normalizeText(service.nombre).includes(kind)
+    ) ?? byName("peluqueria") ?? byName(kind);
+  }
   if (label.includes("premium")) return byName("premium");
   if (label.includes("relax")) return byName("relax");
   if (label.includes("armonia")) return byName("armonia") ?? byName("spa");
@@ -117,7 +123,7 @@ const CATEGORIES: ServiceCategory[] = [
     id: "spa", label: "Spa & Bienestar", emoji: "✦",
     services: [
       { id: "relax", priceId: "spa-relax", label: "Sesión Relax", desc: "Baño + aromaterapia + masaje relajante", fallbackPrice: "$10.000" },
-      { id: "armonia", priceId: "spa-armonia", label: "Sesión Armonía", desc: "Baño + fangoterapia + cromoterapia", fallbackPrice: "$12.000" },
+      { id: "armonia", priceId: "spa-armonia", label: "Sesión Armonía", desc: "Baño + bienestar relajante", fallbackPrice: "$12.000" },
       { id: "premium", priceId: "spa-premium", label: "Sesión Premium", desc: "Spa completo · todos los beneficios", fallbackPrice: "$21.000", star: true },
     ],
   },
@@ -126,6 +132,13 @@ const CATEGORIES: ServiceCategory[] = [
     services: [
       { id: "gua-canina", priceId: "gua-canina", label: "Guardería Canina", desc: "Cuidado con actividades para perros", fallbackPrice: "$9.000" },
       { id: "gua-felina", priceId: "gua-felina", label: "Guardería Felina", desc: "Ambiente tranquilo y seguro para gatos", fallbackPrice: "$7.500" },
+    ],
+  },
+  {
+    id: "peluqueria", label: "Peluquería", emoji: "✂️",
+    services: [
+      { id: "pel-canina", priceId: "pel-canina", label: "Peluquería Canina", desc: "Baño y arreglo para perros", fallbackPrice: "$12.000" },
+      { id: "pel-felina", priceId: "pel-felina", label: "Peluquería Felina", desc: "Baño y arreglo para gatos", fallbackPrice: "$12.000" },
     ],
   },
   {
