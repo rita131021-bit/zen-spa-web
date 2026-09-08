@@ -1,4 +1,4 @@
-const defaultApiBaseUrl = "https://zen-spa-backend-production-df4d.up.railway.app";
+const defaultApiBaseUrl = "https://zen-spa-backend-production.up.railway.app";
 const apiBaseUrl = (import.meta.env.VITE_API_URL || defaultApiBaseUrl).replace(/\/$/, "");
 
 export function apiUrl(path: string) {
