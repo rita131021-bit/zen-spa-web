@@ -10,7 +10,7 @@ const CLIENT_NAME_STORAGE_KEY = "zen-chat-cliente-nombre";
 const CLIENT_WHATSAPP_STORAGE_KEY = "zen-chat-cliente-whatsapp";
 const CLIENT_TOPIC_STORAGE_KEY = "zen-chat-consulta";
 const CLIENT_READ_STORAGE_KEY = "zen-chat-last-read-admin-message";
-const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production-df4d.up.railway.app";
+const SOCKET_FALLBACK_URL = "https://zen-spa-backend-production.up.railway.app";
 
 const getStoredValue = (key: string) => {
   try {
