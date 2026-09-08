@@ -120,34 +120,37 @@ export default function GuarderiaSection() {
     setPrices(prev => ({ ...prev, [id]: { price, priceNote } }));
   }, []);
 
-  const gp = (id: string) => prices[id] ?? { price: "", priceNote: "por día" };
+  const gp = (id: string, fallbackPrice = "", fallbackNote = "") => {
+    const saved = prices[id];
+    return { price: saved?.price || fallbackPrice, priceNote: saved?.priceNote || fallbackNote };
+  };
 
   return (
     <section id="guarderia" className="py-12 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
 
           <GuarderiaCard
             image="/assets/guarderia-canina-photo.png"
-            title="Guardería para Perros"
-            subtitle="Diversión, cuidado y amor todo el día."
+            title="Guardería Canina · ZEN Spa para Mascotas"
+            subtitle="Exclusiva para perris consentidos 💜 Libre de caniles y como en casa."
             priceId="gua-canina"
-            price={gp("gua-canina").price}
-            priceNote={gp("gua-canina").priceNote}
+            price={gp("gua-canina", "$30.000", "por día").price}
+            priceNote={gp("gua-canina", "$30.000", "por día").priceNote}
             onPriceSaved={handleSaved}
-            items={["Libre de estrés, como en casa","Juegos adaptados a su tamaño y edad","Con pelotones en época de calor","Caminatas y salidas para su bienestar","Salas climatizadas","Cuidados las 24 horas (equipo de 4 personas)","Rutinas higiénicas y mantenimiento"]}
+            items={["Guardería familiar, libre de caniles","Sala ambientada con camitas y puff, climatizada","Predio de recreación al aire libre y piletines en época de calor","Alimentación igual que en casa","Recreación y juegos adaptados a cada edad","Cuidados las 24 horas (equipo de 4 personas)","Baños higiénicos de mantenimiento","Ingresos y egresos a coordinar, de lunes a sábados","Por cantidad de días o grupo familiar se realiza presupuesto"]}
             buttonLabel="Reservar guardería"
           />
 
           <GuarderiaCard
             image="/assets/guarderia-felina-photo.png"
-            title="Guardería Felina"
-            subtitle="Entorno tranquilo y seguro para tu gato."
+            title="Guardería Felina · ZEN Spa para Mascotas"
+            subtitle="Exclusiva por fechas gatunas 💜 Cuidado exclusivo, no grupal."
             priceId="gua-felina"
-            price={gp("gua-felina").price}
-            priceNote={gp("gua-felina").priceNote}
+            price={gp("gua-felina", "$30.000", "por día").price}
+            priceNote={gp("gua-felina", "$30.000", "por día").priceNote}
             onPriceSaved={handleSaved}
-            items={["Ambientes separados y silenciosos","Juegos y enriquecimiento ambiental","Alimentación según sus hábitos","Cuidados las 24 horas (equipo especializado)","Rutinas de higiene y limpieza diaria"]}
+            items={["Libre de caniles","Sala ambientada con camitas y puff, climatizada","Predio de recreación al aire libre para quienes salen con pretales","Alimentación (excepto medicados)","Recreación y juegos adaptados a cada edad","Cuidados las 24 horas (equipo de 4 personas)","Baños higiénicos o de mantenimiento","Cuidado exclusivo, no grupal"]}
             buttonLabel="Reservar guardería"
           />
 

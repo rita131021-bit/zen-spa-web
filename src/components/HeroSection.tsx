@@ -228,7 +228,7 @@ export default function HeroSection() {
           >
             <div style={{ width: "100%", maxWidth: 360, transform: "translateX(-20px)" }}>
               <img
-                src="/assets/hero-principal.png?v=3"
+                src="/assets/hero-principal.png?v=4"
                 alt="Especialista en bienestar animal"
                 style={{
                   width: "100%",

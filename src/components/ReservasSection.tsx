@@ -130,14 +130,22 @@ const CATEGORIES: ServiceCategory[] = [
   {
     id: "guarderia", label: "Guardería", emoji: "🐾",
     services: [
-      { id: "gua-canina", priceId: "gua-canina", label: "Guardería Canina", desc: "Cuidado con actividades para perros", fallbackPrice: "$9.000" },
-      { id: "gua-felina", priceId: "gua-felina", label: "Guardería Felina", desc: "Ambiente tranquilo y seguro para gatos", fallbackPrice: "$7.500" },
+      { id: "gua-canina", priceId: "gua-canina", label: "Guardería Canina", desc: "Familiar, libre de caniles · por día", fallbackPrice: "$30.000" },
+      { id: "gua-felina", priceId: "gua-felina", label: "Guardería Felina", desc: "Exclusiva por fechas gatunas, no grupal · por día", fallbackPrice: "$30.000" },
     ],
   },
   {
     id: "peluqueria", label: "Peluquería", emoji: "✂️",
     services: [
-      { id: "pel-canina", priceId: "pel-canina", label: "Peluquería Canina", desc: "Baño y arreglo para perros", fallbackPrice: "$12.000" },
+      { id: "pel-pequena-belleza", priceId: "pel-pequena-belleza", label: "Raza pequeña · Baño belleza", desc: "Referencia: poodle toy", fallbackPrice: "$28.000" },
+      { id: "pel-pequena-atp", priceId: "pel-pequena-atp", label: "Raza pequeña · Baño atp", desc: "Referencia: poodle toy", fallbackPrice: "$30.000" },
+      { id: "pel-pequena-tijera", priceId: "pel-pequena-tijera", label: "Raza pequeña · Baño + corte - Tijera", desc: "Referencia: poodle toy", fallbackPrice: "$38.000/$44.000" },
+      { id: "pel-mediana-belleza", priceId: "pel-mediana-belleza", label: "Raza mediana · Baño belleza", desc: "Referencia: fox terrier, poodle mediano, cocker, etc.", fallbackPrice: "$40.000" },
+      { id: "pel-mediana-atp", priceId: "pel-mediana-atp", label: "Raza mediana · Baño atp", desc: "Referencia: fox terrier, poodle mediano, cocker, etc.", fallbackPrice: "$42.000" },
+      { id: "pel-mediana-tijera", priceId: "pel-mediana-tijera", label: "Raza mediana · Baño + corte - Tijera", desc: "Referencia: fox terrier, poodle mediano, cocker, etc.", fallbackPrice: "$45.000/$48.000" },
+      { id: "pel-grande-belleza", priceId: "pel-grande-belleza", label: "Raza grande · Baño belleza", desc: "Referencia: golden, pastor alemán, etc.", fallbackPrice: "$65.000" },
+      { id: "pel-grande-atp", priceId: "pel-grande-atp", label: "Raza grande · Baño atp", desc: "Referencia: golden, pastor alemán, etc.", fallbackPrice: "$68.000" },
+      { id: "pel-grande-corte-deslanado", priceId: "pel-grande-corte-deslanado", label: "Raza grande · Baño + corte/deslanado", desc: "Referencia: golden, pastor alemán, etc.", fallbackPrice: "$80.000" },
       { id: "pel-felina", priceId: "pel-felina", label: "Peluquería Felina", desc: "Baño y arreglo para gatos", fallbackPrice: "$12.000" },
     ],
   },
