@@ -60,11 +60,14 @@ const FALLBACK_RESENAS: ReviewEntry[] = [
 ];
 
 const STATIC_GALLERY = [
-  "/api/uploads/galeria1.png",
-  "/api/uploads/galeria2.png",
-  "/api/uploads/galeria3.png",
-  "/api/uploads/galeria4.png",
-  "/api/uploads/galeria5.png",
+  "/assets/galeria/romi-e-hijo.jpeg",
+  "/assets/galeria/linda.jpeg",
+  "/assets/galeria/mishi.jpeg",
+  "/assets/galeria/perrita-crema.jpeg",
+  "/assets/galeria/perri.jpeg",
+  "/assets/galeria/gati.jpeg",
+  "/assets/galeria/brisa.jpeg",
+  "/assets/galeria/caniche-negro.jpeg",
 ];
 
 type Tab = "antes-despues" | "resenas" | "galeria";
