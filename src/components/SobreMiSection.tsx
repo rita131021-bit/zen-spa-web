@@ -229,7 +229,7 @@ export default function SobreMiSection() {
             {/* RIGHT: Photo */}
             <div ref={heroRight.ref} style={{ display: "flex", justifyContent: "center", alignItems: "center", ...fadeUp(heroRight.visible, 150) }}>
               <img
-                src="/assets/sobre-mi-hero.png?v=2"
+                src="/assets/sobre-mi-hero.png?v=3"
                 alt="Romina Alejandra Robles especialista en bienestar animal"
                 style={{
                   width: "100%",
